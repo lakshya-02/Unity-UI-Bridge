@@ -19,6 +19,12 @@ The only Python package currently used by the project is `jsonschema`, for local
 python -m pip install -r Assets\UnityUIBridge\Tools\Python\requirements.txt
 ```
 
+For image-to-spec generation, install the local AI/CV stack:
+
+```powershell
+python -m pip install -r Assets\UnityUIBridge\Tools\Python\requirements-ai.txt
+```
+
 ## Editor Menu
 
 Open the importer from:

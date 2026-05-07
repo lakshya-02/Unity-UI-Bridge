@@ -9,6 +9,7 @@ The project currently includes:
 - A local Python validator.
 - A Unity Editor importer for v1 specs.
 - Early local image-to-spec tooling for screenshot/concept image reconstruction.
+- Local OCR/CV dependencies for image-to-spec generation without API keys.
 
 Core goals:
 
