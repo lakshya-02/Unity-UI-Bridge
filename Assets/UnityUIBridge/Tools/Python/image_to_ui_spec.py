@@ -40,6 +40,7 @@ class OcrRegion:
     height: int
     text: str
     confidence: float
+    adapter: str
 
 
 def generate_spec(
@@ -97,7 +98,7 @@ def generate_spec(
             "org.unity-ui-bridge.pipeline": {
                 "generator": "image_to_ui_spec.py",
                 "layoutDetector": "opencv-contours",
-                "ocr": "paddleocr" if run_ocr else "disabled",
+                "ocr": "paddleocr-with-easyocr-fallback" if run_ocr else "disabled",
             }
         },
     }
@@ -195,28 +196,66 @@ def _detect_layout_regions(image, max_regions: int) -> list[Region]:
 
 
 def _detect_text_regions(image_path: Path) -> list[OcrRegion]:
+    paddle_error: Exception | None = None
     try:
         from paddleocr import PaddleOCR
     except ImportError:
-        print("PaddleOCR is not installed; continuing without OCR text nodes.", file=sys.stderr)
-        return []
+        paddle_error = None
+    else:
+        try:
+            ocr = _create_paddle_ocr()
+            raw_result = _run_paddle_ocr(ocr, image_path)
+            return _parse_paddle_result(raw_result)
+        except Exception as exc:  # pragma: no cover - depends on model/runtime state.
+            paddle_error = exc
 
     try:
-        ocr = _create_paddle_ocr()
-        raw_result = _run_paddle_ocr(ocr, image_path)
-        return _parse_paddle_result(raw_result)
+        return _detect_text_regions_easyocr(image_path)
     except Exception as exc:  # pragma: no cover - depends on model/runtime state.
-        print(f"PaddleOCR failed; continuing without OCR text nodes: {exc}", file=sys.stderr)
+        if paddle_error is not None:
+            print(f"PaddleOCR failed: {paddle_error}", file=sys.stderr)
+        print(f"EasyOCR failed; continuing without OCR text nodes: {exc}", file=sys.stderr)
         return []
+
+
+def _detect_text_regions_easyocr(image_path: Path) -> list[OcrRegion]:
+    try:
+        import easyocr
+    except ImportError as exc:
+        raise RuntimeError(
+            "No OCR backend is available. Install AI dependencies with "
+            "`python -m pip install -r Assets/UnityUIBridge/Tools/Python/requirements-ai.txt`."
+        ) from exc
+
+    reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+    results = reader.readtext(str(image_path))
+    regions: list[OcrRegion] = []
+    for box, text, confidence in results:
+        points = _box_to_points(box)
+        if not points:
+            continue
+        xs = [point[0] for point in points]
+        ys = [point[1] for point in points]
+        x = int(min(xs))
+        y = int(min(ys))
+        width = max(1, int(max(xs) - x))
+        height = max(1, int(max(ys) - y))
+        regions.append(OcrRegion(x, y, width, height, str(text), round(float(confidence), 3), "easyocr"))
+    return regions
 
 
 def _create_paddle_ocr():
     from paddleocr import PaddleOCR
 
     try:
-        return PaddleOCR(lang="en", use_textline_orientation=True)
+        return PaddleOCR(
+            lang="en",
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+        )
     except TypeError:
-        return PaddleOCR(lang="en", use_angle_cls=True)
+        return PaddleOCR(lang="en", use_angle_cls=False)
 
 
 def _run_paddle_ocr(ocr, image_path: Path):
@@ -268,7 +307,7 @@ def _parse_ocr_item(item) -> OcrRegion | None:
     y = int(min(ys))
     width = max(1, int(max(xs) - x))
     height = max(1, int(max(ys) - y))
-    return OcrRegion(x, y, width, height, text, round(confidence, 3))
+    return OcrRegion(x, y, width, height, text, round(confidence, 3), "paddleocr")
 
 
 def _box_to_points(box) -> list[tuple[float, float]]:
@@ -381,7 +420,7 @@ def _node_from_ocr(index: int, region: OcrRegion) -> dict:
         },
         "confidence": region.confidence,
         "provenance": {
-            "adapter": "paddleocr",
+            "adapter": region.adapter,
             "sourceRect": _rect(region.x, region.y, region.width, region.height),
         },
     }

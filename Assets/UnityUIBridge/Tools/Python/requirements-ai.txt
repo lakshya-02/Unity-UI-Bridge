@@ -4,3 +4,4 @@ opencv-python>=4.9,<5
 pillow>=10,<13
 paddlepaddle>=3.0,<4
 paddleocr>=3.0,<4
+easyocr>=1.7,<2
