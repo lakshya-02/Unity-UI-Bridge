@@ -1,0 +1,252 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "doc.main-menu",
+    "title": "Sci-fi Main Menu",
+    "source": {
+      "type": "concept-art",
+      "uri": "Samples/Images/main-menu.png"
+    },
+    "referenceResolution": {
+      "width": 1920,
+      "height": 1080
+    },
+    "coordinateSystem": {
+      "origin": "top-left",
+      "unit": "pixel",
+      "yAxis": "down"
+    },
+    "target": {
+      "engine": "Unity",
+      "uiSystem": "uGUI",
+      "canvasMode": "screen-space-overlay"
+    }
+  },
+  "assets": [
+    {
+      "id": "asset.panel.primary",
+      "type": "panel",
+      "uri": "Assets/Extracted/main-menu/panel-primary.png",
+      "rect": {
+        "x": 560,
+        "y": 180,
+        "width": 800,
+        "height": 720
+      },
+      "nineSlice": {
+        "left": 24,
+        "right": 24,
+        "top": 24,
+        "bottom": 24
+      },
+      "provenance": {
+        "adapter": "manual-fixture"
+      }
+    },
+    {
+      "id": "asset.icon.play",
+      "type": "icon",
+      "uri": "Assets/Extracted/main-menu/icon-play.png",
+      "rect": {
+        "x": 690,
+        "y": 460,
+        "width": 48,
+        "height": 48
+      }
+    }
+  ],
+  "styles": [
+    {
+      "id": "style.panel.glass",
+      "name": "Glass Panel",
+      "colors": {
+        "fill": "#102235CC",
+        "accent": "#4DE8FFFF",
+        "text": "#F5FBFFFF"
+      },
+      "border": {
+        "color": "#4DE8FFFF",
+        "width": 2,
+        "radius": 8
+      },
+      "glow": {
+        "color": "#4DE8FFFF",
+        "intensity": 0.7,
+        "radius": 16
+      }
+    },
+    {
+      "id": "style.button.primary",
+      "name": "Primary Menu Button",
+      "colors": {
+        "fill": "#223A56FF",
+        "text": "#FFFFFFFF"
+      },
+      "typography": {
+        "fontFamily": "Inter",
+        "fontSize": 32,
+        "fontStyle": "bold",
+        "alignment": "center"
+      },
+      "states": {
+        "hover": {
+          "tint": "#4DE8FFFF"
+        },
+        "pressed": {
+          "tint": "#1AB6D2FF"
+        }
+      },
+      "transitions": [
+        {
+          "trigger": "hover",
+          "durationMs": 120,
+          "easing": "ease-out"
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node.canvas",
+      "role": "canvas",
+      "name": "Main Menu Canvas",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080
+      },
+      "anchors": {
+        "min": {
+          "x": 0,
+          "y": 0
+        },
+        "max": {
+          "x": 1,
+          "y": 1
+        }
+      },
+      "layout": {
+        "mode": "overlay"
+      },
+      "children": [
+        {
+          "id": "node.menu-panel",
+          "role": "panel",
+          "name": "Menu Panel",
+          "rect": {
+            "x": 560,
+            "y": 180,
+            "width": 800,
+            "height": 720
+          },
+          "styleRef": "style.panel.glass",
+          "assetRef": "asset.panel.primary",
+          "layout": {
+            "mode": "vertical",
+            "spacing": 24,
+            "padding": {
+              "left": 80,
+              "right": 80,
+              "top": 96,
+              "bottom": 96
+            }
+          },
+          "confidence": 0.97,
+          "children": [
+            {
+              "id": "node.title",
+              "role": "text",
+              "name": "Title",
+              "rect": {
+                "x": 690,
+                "y": 260,
+                "width": 540,
+                "height": 72
+              },
+              "styleRef": "style.button.primary",
+              "text": {
+                "content": "STARFALL",
+                "language": "en",
+                "ocrConfidence": 0.94
+              },
+              "confidence": 0.91
+            },
+            {
+              "id": "node.play-button",
+              "role": "button",
+              "name": "Play Button",
+              "rect": {
+                "x": 660,
+                "y": 440,
+                "width": 600,
+                "height": 88
+              },
+              "styleRef": "style.button.primary",
+              "assetRef": "asset.icon.play",
+              "interactionRef": "interaction.play",
+              "confidence": 0.96,
+              "children": [
+                {
+                  "id": "node.play-label",
+                  "role": "text",
+                  "rect": {
+                    "x": 790,
+                    "y": 463,
+                    "width": 340,
+                    "height": 42
+                  },
+                  "styleRef": "style.button.primary",
+                  "text": {
+                    "content": "PLAY",
+                    "language": "en",
+                    "ocrConfidence": 0.99
+                  }
+                }
+              ]
+            },
+            {
+              "id": "node.low-confidence-badge",
+              "role": "unknown",
+              "name": "Unclassified Accent",
+              "rect": {
+                "x": 1220,
+                "y": 215,
+                "width": 72,
+                "height": 28
+              },
+              "confidence": 0.38,
+              "provenance": {
+                "adapter": "manual-fixture",
+                "model": "unknown-region-fixture"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "id": "interaction.play",
+      "nodeId": "node.play-button",
+      "type": "button",
+      "action": "menu.play",
+      "label": "Start Game",
+      "states": [
+        "normal",
+        "hover",
+        "pressed",
+        "disabled"
+      ]
+    }
+  ],
+  "extensions": {
+    "org.unity-ui-bridge.fixture": {
+      "notes": "Covers nested panels, buttons, text, styles, assets, and low-confidence unknown nodes."
+    },
+    "org.unity-ui-bridge.xr": {
+      "recommendedDistanceMeters": 1.2
+    }
+  }
+}

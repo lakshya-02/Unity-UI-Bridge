@@ -1,0 +1,22 @@
+{
+  "name": "UnityUIBridge.EditModeTests",
+  "rootNamespace": "UnityUIBridge.Tests.EditMode",
+  "references": [
+    "UnityUIBridge.Runtime",
+    "UnityUIBridge.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

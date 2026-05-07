@@ -1,0 +1,56 @@
+# Unity generated folders
+/Library/
+/Temp/
+/Obj/
+/Build/
+/Builds/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+/Recordings/
+
+# Unity generated project files
+*.csproj
+*.sln
+*.slnx
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+
+# Unity crash and profiler artifacts
+sysinfo.txt
+*.stackdump
+*.traceevents
+
+# Visual Studio / Rider / VS Code local state
+.vs/
+.idea/
+.vscode/
+.vscode/.ropeproject
+.vscode/.settings
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local AI/model caches and generated outputs
+/Models/
+/model-cache/
+/hf-cache/
+/Assets/UnityUIBridge/Generated/
+/Assets/UnityUIBridge/Generated.meta
+/Assets/Generated/
+/Assets/Generated.meta
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

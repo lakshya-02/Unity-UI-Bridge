@@ -1,0 +1,710 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unity-ui-bridge.local/schemas/v1/ui-bridge.schema.json",
+  "title": "Unity UI Bridge Intermediate Representation v1",
+  "description": "Contract-first UI reconstruction format for local-first Unity uGUI canvas assembly.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "document",
+    "assets",
+    "styles",
+    "nodes",
+    "interactions",
+    "extensions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "document": {
+      "$ref": "#/$defs/document"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      },
+      "uniqueItems": true
+    },
+    "styles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/style"
+      },
+      "uniqueItems": true
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/uiNode"
+      }
+    },
+    "interactions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/interaction"
+      }
+    },
+    "extensions": {
+      "$ref": "#/$defs/extensions"
+    }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "source",
+        "referenceResolution",
+        "coordinateSystem",
+        "target"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "object",
+          "required": [
+            "type",
+            "uri"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "enum": [
+                "screenshot",
+                "concept-art",
+                "mockup",
+                "generated"
+              ]
+            },
+            "uri": {
+              "type": "string",
+              "minLength": 1
+            },
+            "capturedAt": {
+              "type": "string"
+            }
+          }
+        },
+        "referenceResolution": {
+          "$ref": "#/$defs/size"
+        },
+        "coordinateSystem": {
+          "type": "object",
+          "required": [
+            "origin",
+            "unit",
+            "yAxis"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "origin": {
+              "const": "top-left"
+            },
+            "unit": {
+              "const": "pixel"
+            },
+            "yAxis": {
+              "const": "down"
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "required": [
+            "engine",
+            "uiSystem"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "engine": {
+              "const": "Unity"
+            },
+            "uiSystem": {
+              "const": "uGUI"
+            },
+            "canvasMode": {
+              "enum": [
+                "screen-space-overlay",
+                "screen-space-camera",
+                "world-space"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "uri",
+        "rect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": [
+            "sprite",
+            "icon",
+            "panel",
+            "background",
+            "text-region",
+            "mask"
+          ]
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rect": {
+          "$ref": "#/$defs/rect"
+        },
+        "nineSlice": {
+          "$ref": "#/$defs/nineSlice"
+        },
+        "sourceNodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "style": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/color"
+          }
+        },
+        "typography": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fontFamily": {
+              "type": "string"
+            },
+            "fontSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "fontStyle": {
+              "enum": [
+                "regular",
+                "bold",
+                "italic",
+                "bold-italic"
+              ]
+            },
+            "alignment": {
+              "enum": [
+                "left",
+                "center",
+                "right",
+                "justified"
+              ]
+            }
+          }
+        },
+        "border": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "width": {
+              "type": "number",
+              "minimum": 0
+            },
+            "radius": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "shadow": {
+          "$ref": "#/$defs/shadow"
+        },
+        "glow": {
+          "$ref": "#/$defs/glow"
+        },
+        "states": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/styleState"
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transition"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "uiNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "role",
+        "rect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "canvas",
+            "group",
+            "panel",
+            "image",
+            "icon",
+            "text",
+            "button",
+            "input",
+            "toggle",
+            "slider",
+            "unknown"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "rect": {
+          "$ref": "#/$defs/rect"
+        },
+        "anchors": {
+          "$ref": "#/$defs/anchors"
+        },
+        "pivot": {
+          "$ref": "#/$defs/vector2"
+        },
+        "layout": {
+          "$ref": "#/$defs/layoutHints"
+        },
+        "styleRef": {
+          "$ref": "#/$defs/id"
+        },
+        "assetRef": {
+          "$ref": "#/$defs/id"
+        },
+        "text": {
+          "$ref": "#/$defs/textMetadata"
+        },
+        "interactionRef": {
+          "$ref": "#/$defs/id"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uiNode"
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "required": [
+        "id",
+        "nodeId",
+        "type"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "nodeId": {
+          "$ref": "#/$defs/id"
+        },
+        "type": {
+          "enum": [
+            "button",
+            "toggle",
+            "input",
+            "slider",
+            "navigation",
+            "action"
+          ]
+        },
+        "action": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "normal",
+              "hover",
+              "pressed",
+              "selected",
+              "disabled"
+            ]
+          }
+        },
+        "extensions": {
+          "$ref": "#/$defs/extensions"
+        }
+      }
+    },
+    "rect": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "size": {
+      "type": "object",
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "vector2": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "anchors": {
+      "type": "object",
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "$ref": "#/$defs/vector2"
+        },
+        "max": {
+          "$ref": "#/$defs/vector2"
+        }
+      }
+    },
+    "layoutHints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "absolute",
+            "horizontal",
+            "vertical",
+            "grid",
+            "overlay"
+          ]
+        },
+        "spacing": {
+          "type": "number",
+          "minimum": 0
+        },
+        "padding": {
+          "$ref": "#/$defs/edgeInsets"
+        },
+        "responsivePriority": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "textMetadata": {
+      "type": "object",
+      "required": [
+        "content"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "isPlaceholder": {
+          "type": "boolean"
+        },
+        "ocrConfidence": {
+          "$ref": "#/$defs/confidence"
+        }
+      }
+    },
+    "nineSlice": {
+      "type": "object",
+      "required": [
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "edgeInsets": {
+      "type": "object",
+      "required": [
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "left": {
+          "type": "number",
+          "minimum": 0
+        },
+        "right": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "shadow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "offset": {
+          "$ref": "#/$defs/freeVector2"
+        },
+        "blur": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "glow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/color"
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "styleState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "styleRef": {
+          "$ref": "#/$defs/id"
+        },
+        "assetRef": {
+          "$ref": "#/$defs/id"
+        },
+        "tint": {
+          "$ref": "#/$defs/color"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "required": [
+        "trigger",
+        "durationMs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "trigger": {
+          "enum": [
+            "hover",
+            "press",
+            "select",
+            "show",
+            "hide"
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "easing": {
+          "type": "string"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "sourceRect": {
+          "$ref": "#/$defs/rect"
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
+      },
+      "additionalProperties": true
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "freeVector2": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

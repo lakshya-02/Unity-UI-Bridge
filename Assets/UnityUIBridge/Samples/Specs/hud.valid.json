@@ -1,0 +1,222 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "doc.hud",
+    "title": "Arena HUD",
+    "source": {
+      "type": "screenshot",
+      "uri": "Samples/Images/hud.png"
+    },
+    "referenceResolution": {
+      "width": 2560,
+      "height": 1440
+    },
+    "coordinateSystem": {
+      "origin": "top-left",
+      "unit": "pixel",
+      "yAxis": "down"
+    },
+    "target": {
+      "engine": "Unity",
+      "uiSystem": "uGUI",
+      "canvasMode": "world-space"
+    }
+  },
+  "assets": [
+    {
+      "id": "asset.icon.health",
+      "type": "icon",
+      "uri": "Assets/Extracted/hud/icon-health.png",
+      "rect": {
+        "x": 96,
+        "y": 1228,
+        "width": 64,
+        "height": 64
+      },
+      "sourceNodeId": "node.health-icon"
+    },
+    {
+      "id": "asset.panel.status",
+      "type": "panel",
+      "uri": "Assets/Extracted/hud/status-panel.png",
+      "rect": {
+        "x": 64,
+        "y": 1188,
+        "width": 580,
+        "height": 172
+      }
+    }
+  ],
+  "styles": [
+    {
+      "id": "style.hud.status",
+      "name": "HUD Status",
+      "colors": {
+        "fill": "#071016AA",
+        "health": "#69F08EFF",
+        "shield": "#62A8FFFF",
+        "text": "#FFFFFFFF"
+      },
+      "typography": {
+        "fontFamily": "Roboto Condensed",
+        "fontSize": 24,
+        "fontStyle": "regular",
+        "alignment": "left"
+      },
+      "shadow": {
+        "color": "#00000088",
+        "offset": {
+          "x": 0,
+          "y": 2
+        },
+        "blur": 6
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node.canvas",
+      "role": "canvas",
+      "name": "World Space HUD Canvas",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 2560,
+        "height": 1440
+      },
+      "anchors": {
+        "min": {
+          "x": 0,
+          "y": 0
+        },
+        "max": {
+          "x": 1,
+          "y": 1
+        }
+      },
+      "extensions": {
+        "org.unity-ui-bridge.xr": {
+          "canvasMode": "world-space",
+          "metersPerPixel": 0.001
+        }
+      },
+      "children": [
+        {
+          "id": "node.status-panel",
+          "role": "panel",
+          "name": "Status Panel",
+          "rect": {
+            "x": 64,
+            "y": 1188,
+            "width": 580,
+            "height": 172
+          },
+          "anchors": {
+            "min": {
+              "x": 0,
+              "y": 0
+            },
+            "max": {
+              "x": 0,
+              "y": 0
+            }
+          },
+          "pivot": {
+            "x": 0,
+            "y": 0
+          },
+          "styleRef": "style.hud.status",
+          "assetRef": "asset.panel.status",
+          "children": [
+            {
+              "id": "node.health-icon",
+              "role": "icon",
+              "rect": {
+                "x": 96,
+                "y": 1228,
+                "width": 64,
+                "height": 64
+              },
+              "assetRef": "asset.icon.health",
+              "confidence": 0.9
+            },
+            {
+              "id": "node.health-label",
+              "role": "text",
+              "rect": {
+                "x": 184,
+                "y": 1222,
+                "width": 120,
+                "height": 32
+              },
+              "styleRef": "style.hud.status",
+              "text": {
+                "content": "HEALTH",
+                "language": "en",
+                "ocrConfidence": 0.97
+              }
+            },
+            {
+              "id": "node.health-bar",
+              "role": "image",
+              "rect": {
+                "x": 184,
+                "y": 1268,
+                "width": 380,
+                "height": 28
+              },
+              "styleRef": "style.hud.status",
+              "confidence": 0.86,
+              "extensions": {
+                "org.unity-ui-bridge.semantic": {
+                  "valueBinding": "player.health"
+                }
+              }
+            },
+            {
+              "id": "node.objective-input",
+              "role": "input",
+              "rect": {
+                "x": 1872,
+                "y": 64,
+                "width": 520,
+                "height": 56
+              },
+              "styleRef": "style.hud.status",
+              "text": {
+                "content": "Search objective",
+                "language": "en",
+                "isPlaceholder": true,
+                "ocrConfidence": 0.82
+              },
+              "interactionRef": "interaction.objective-search"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "id": "interaction.objective-search",
+      "nodeId": "node.objective-input",
+      "type": "input",
+      "label": "Objective Search",
+      "states": [
+        "normal",
+        "selected",
+        "disabled"
+      ],
+      "extensions": {
+        "org.unity-ui-bridge.binding": {
+          "inputAction": "hud.searchObjective"
+        }
+      }
+    }
+  ],
+  "extensions": {
+    "org.unity-ui-bridge.fixture": {
+      "notes": "Covers HUD layout, XR/world-space metadata, placeholder text, and semantic extensions."
+    }
+  }
+}

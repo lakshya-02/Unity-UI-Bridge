@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0.0",
+  "document": {
+    "id": "doc.invalid",
+    "title": "Invalid Fixture",
+    "source": {
+      "type": "mockup",
+      "uri": "Samples/Images/invalid.png"
+    },
+    "referenceResolution": {
+      "width": 1280,
+      "height": 720
+    },
+    "coordinateSystem": {
+      "origin": "top-left",
+      "unit": "pixel",
+      "yAxis": "down"
+    },
+    "target": {
+      "engine": "Unity",
+      "uiSystem": "uGUI"
+    }
+  },
+  "assets": [],
+  "styles": [],
+  "nodes": [
+    {
+      "id": "node.missing-rect",
+      "role": "button",
+      "interactionRef": "interaction.invalid"
+    }
+  ],
+  "interactions": [
+    {
+      "id": "interaction.invalid",
+      "nodeId": "node.missing-rect",
+      "type": "button"
+    }
+  ],
+  "extensions": {}
+}

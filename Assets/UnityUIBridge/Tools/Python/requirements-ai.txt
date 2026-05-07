@@ -1,0 +1,6 @@
+-r requirements.txt
+numpy>=1.26,<3
+opencv-python>=4.9,<5
+pillow>=10,<13
+paddlepaddle>=3.0,<4
+paddleocr>=3.0,<4
