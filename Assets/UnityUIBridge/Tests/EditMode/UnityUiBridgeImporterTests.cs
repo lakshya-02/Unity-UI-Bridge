@@ -140,6 +140,35 @@ namespace UnityUIBridge.Tests.EditMode
             AssertPosition(sourceFrame.gameObject, 0f, -218.75f);
         }
 
+        [Test]
+        public void ImporterCreatesDebugOverlayInsideSourceFrame()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Debug Overlay Test",
+                CreateEventSystem = false,
+                CreateDebugOverlay = true
+            });
+
+            var sourceFrame = _root.transform.Find("Source Frame");
+            Assert.That(sourceFrame, Is.Not.Null);
+
+            var debugOverlay = sourceFrame.Find("Debug Overlay");
+            Assert.That(debugOverlay, Is.Not.Null);
+
+            var playButtonDebug = debugOverlay.Find("Debug node.play-button");
+            Assert.That(playButtonDebug, Is.Not.Null);
+            AssertPosition(playButtonDebug.gameObject, 660f, -440f);
+            AssertSize(playButtonDebug.gameObject, 600f, 88f);
+
+            var label = playButtonDebug.Find("Label");
+            Assert.That(label, Is.Not.Null);
+            Assert.That(label.GetComponent<Text>().text, Is.EqualTo("node.play-button (button)"));
+            Assert.That(playButtonDebug.GetComponent<Image>().raycastTarget, Is.False);
+        }
+
         private static string SamplePath(string fileName)
         {
             return Path.Combine(Application.dataPath, "UnityUIBridge", "Samples", "Specs", fileName);

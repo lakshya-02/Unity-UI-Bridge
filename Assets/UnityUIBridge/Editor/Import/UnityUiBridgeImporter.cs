@@ -14,6 +14,7 @@ namespace UnityUIBridge.Editor.Import
         public Canvas TargetCanvas;
         public bool FitToTargetCanvas = true;
         public bool PreserveAspectRatio = true;
+        public bool CreateDebugOverlay = false;
     }
 
     public static class UnityUiBridgeImporter
@@ -46,6 +47,11 @@ namespace UnityUIBridge.Editor.Import
                 foreach (var child in canvasNode.children)
                 {
                     CreateNode(spec, child, sourceFrame, canvasNode.rect, options);
+                }
+
+                if (options.CreateDebugOverlay)
+                {
+                    CreateDebugOverlay(canvasNode.children, sourceFrame, canvasNode.rect);
                 }
             }
 
@@ -175,6 +181,97 @@ namespace UnityUIBridge.Editor.Import
                     CreateNode(spec, child, gameObject.transform, node.rect, options);
                 }
             }
+        }
+
+        private static void CreateDebugOverlay(
+            UnityUiBridgeNode[] nodes,
+            Transform sourceFrame,
+            UnityUiBridgeRect sourceCanvasRect)
+        {
+            var overlay = new GameObject("Debug Overlay");
+            Undo.RegisterCreatedObjectUndo(overlay, "Create UI Bridge Debug Overlay");
+            overlay.transform.SetParent(sourceFrame, false);
+
+            var overlayRect = overlay.AddComponent<RectTransform>();
+            overlayRect.anchorMin = new Vector2(0f, 1f);
+            overlayRect.anchorMax = new Vector2(0f, 1f);
+            overlayRect.pivot = new Vector2(0f, 1f);
+            overlayRect.anchoredPosition = Vector2.zero;
+            overlayRect.sizeDelta = new Vector2(sourceCanvasRect.width, sourceCanvasRect.height);
+
+            foreach (var node in nodes)
+            {
+                CreateDebugNode(node, overlay.transform, sourceCanvasRect);
+            }
+        }
+
+        private static void CreateDebugNode(
+            UnityUiBridgeNode node,
+            Transform overlay,
+            UnityUiBridgeRect sourceCanvasRect)
+        {
+            if (node == null)
+            {
+                return;
+            }
+
+            var gameObject = new GameObject($"Debug {node.id}");
+            Undo.RegisterCreatedObjectUndo(gameObject, "Create UI Bridge Debug Node");
+            gameObject.transform.SetParent(overlay, false);
+
+            var rectTransform = gameObject.AddComponent<RectTransform>();
+            ApplyRectTransform(rectTransform, node, sourceCanvasRect);
+
+            var image = gameObject.AddComponent<Image>();
+            image.color = DebugColorForRole(node.role);
+            image.raycastTarget = false;
+
+            CreateDebugLabel(node, gameObject.transform);
+
+            if (node.children == null)
+            {
+                return;
+            }
+
+            foreach (var child in node.children)
+            {
+                CreateDebugNode(child, overlay, sourceCanvasRect);
+            }
+        }
+
+        private static void CreateDebugLabel(UnityUiBridgeNode node, Transform parent)
+        {
+            var label = new GameObject("Label");
+            Undo.RegisterCreatedObjectUndo(label, "Create UI Bridge Debug Label");
+            label.transform.SetParent(parent, false);
+
+            var rectTransform = label.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0f, 1f);
+            rectTransform.anchorMax = new Vector2(0f, 1f);
+            rectTransform.pivot = new Vector2(0f, 1f);
+            rectTransform.anchoredPosition = new Vector2(4f, -4f);
+            rectTransform.sizeDelta = new Vector2(Mathf.Max(180f, node.rect.width), 22f);
+
+            var text = label.AddComponent<Text>();
+            text.text = $"{node.id} ({node.role})";
+            text.font = ResolveBuiltInFont();
+            text.fontSize = 14;
+            text.alignment = TextAnchor.MiddleLeft;
+            text.color = Color.white;
+            text.raycastTarget = false;
+        }
+
+        private static Color DebugColorForRole(string role)
+        {
+            return role switch
+            {
+                "button" => new Color(0.1f, 0.65f, 1f, 0.22f),
+                "text" => new Color(0.15f, 1f, 0.35f, 0.22f),
+                "panel" => new Color(1f, 0.7f, 0.1f, 0.18f),
+                "icon" => new Color(1f, 0.2f, 0.8f, 0.22f),
+                "input" => new Color(0.55f, 0.35f, 1f, 0.22f),
+                _ => new Color(1f, 1f, 1f, 0.16f)
+            };
         }
 
         private static void AddRoleComponents(UnityUiBridgeSpec spec, GameObject gameObject, UnityUiBridgeNode node)
