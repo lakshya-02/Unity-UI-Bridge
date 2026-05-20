@@ -34,17 +34,18 @@ namespace UnityUIBridge.Editor.Import
                 ? CreateImportRoot(options.TargetCanvas, options.RootName, referenceResolution, options)
                 : CreateCanvas(options.RootName, referenceResolution, spec.document?.target?.canvasMode);
             var targetResolution = ResolveRootSize(root, referenceResolution);
-            var coordinateMap = UnityUiBridgeCoordinateMap.Create(
+            var sourceFrame = CreateSourceFrame(
+                root.transform,
                 canvasNode?.rect,
                 referenceResolution,
-                options.FitToTargetCanvas ? targetResolution : referenceResolution,
-                options.PreserveAspectRatio);
+                targetResolution,
+                options);
 
             if (canvasNode?.children != null)
             {
                 foreach (var child in canvasNode.children)
                 {
-                    CreateNode(spec, child, root.transform, canvasNode.rect, options, coordinateMap);
+                    CreateNode(spec, child, sourceFrame, canvasNode.rect, options);
                 }
             }
 
@@ -89,6 +90,33 @@ namespace UnityUIBridge.Editor.Import
             return root;
         }
 
+        private static Transform CreateSourceFrame(
+            Transform parent,
+            UnityUiBridgeRect sourceCanvasRect,
+            Vector2 referenceResolution,
+            Vector2 targetResolution,
+            UnityUiBridgeImportOptions options)
+        {
+            var sourceSize = ResolveSourceCanvasSize(sourceCanvasRect, referenceResolution);
+            var frame = new GameObject("Source Frame");
+            Undo.RegisterCreatedObjectUndo(frame, "Create UI Bridge Source Frame");
+            frame.transform.SetParent(parent, false);
+
+            var rectTransform = frame.AddComponent<RectTransform>();
+            rectTransform.anchorMin = new Vector2(0f, 1f);
+            rectTransform.anchorMax = new Vector2(0f, 1f);
+            rectTransform.pivot = new Vector2(0f, 1f);
+            rectTransform.sizeDelta = sourceSize;
+
+            var layout = UnityUiBridgeSourceFrameLayout.Create(
+                sourceSize,
+                options.FitToTargetCanvas ? targetResolution : sourceSize,
+                options.PreserveAspectRatio);
+            rectTransform.anchoredPosition = new Vector2(layout.OffsetX, -layout.OffsetY);
+            frame.transform.localScale = new Vector3(layout.ScaleX, layout.ScaleY, 1f);
+            return frame.transform;
+        }
+
         private static GameObject CreateImportRoot(
             Canvas targetCanvas,
             string rootName,
@@ -121,8 +149,7 @@ namespace UnityUIBridge.Editor.Import
             UnityUiBridgeNode node,
             Transform parent,
             UnityUiBridgeRect parentRect,
-            UnityUiBridgeImportOptions options,
-            UnityUiBridgeCoordinateMap coordinateMap)
+            UnityUiBridgeImportOptions options)
         {
             if (node == null)
             {
@@ -134,7 +161,7 @@ namespace UnityUIBridge.Editor.Import
             gameObject.transform.SetParent(parent, false);
 
             var rectTransform = gameObject.AddComponent<RectTransform>();
-            ApplyRectTransform(rectTransform, node, parentRect, coordinateMap);
+            ApplyRectTransform(rectTransform, node, parentRect);
             AddRoleComponents(spec, gameObject, node);
             if (options.ApplyLayoutGroups)
             {
@@ -145,7 +172,7 @@ namespace UnityUIBridge.Editor.Import
             {
                 foreach (var child in node.children)
                 {
-                    CreateNode(spec, child, gameObject.transform, node.rect, options, coordinateMap);
+                    CreateNode(spec, child, gameObject.transform, node.rect, options);
                 }
             }
         }
@@ -253,8 +280,7 @@ namespace UnityUIBridge.Editor.Import
         private static void ApplyRectTransform(
             RectTransform rectTransform,
             UnityUiBridgeNode node,
-            UnityUiBridgeRect parentRect,
-            UnityUiBridgeCoordinateMap coordinateMap)
+            UnityUiBridgeRect parentRect)
         {
             var rect = node.rect;
             rectTransform.anchorMin = node.anchors?.min != null
@@ -267,18 +293,13 @@ namespace UnityUIBridge.Editor.Import
                 ? new Vector2(node.pivot.x, node.pivot.y)
                 : new Vector2(0f, 1f);
 
-            rectTransform.sizeDelta = new Vector2(
-                rect.width * coordinateMap.ScaleX,
-                rect.height * coordinateMap.ScaleY);
+            rectTransform.sizeDelta = new Vector2(rect.width, rect.height);
 
             var parentX = parentRect?.x ?? 0f;
             var parentY = parentRect?.y ?? 0f;
-            var parentIsSourceCanvas = coordinateMap.IsSourceCanvas(parentRect);
-            var offsetX = parentIsSourceCanvas ? coordinateMap.OffsetX : 0f;
-            var offsetY = parentIsSourceCanvas ? coordinateMap.OffsetY : 0f;
             rectTransform.anchoredPosition = new Vector2(
-                ((rect.x - parentX) * coordinateMap.ScaleX) + offsetX,
-                -(((rect.y - parentY) * coordinateMap.ScaleY) + offsetY));
+                rect.x - parentX,
+                -(rect.y - parentY));
         }
 
         private static Vector2 ResolveReferenceResolution(UnityUiBridgeSpec spec, UnityUiBridgeNode canvasNode)
@@ -296,6 +317,16 @@ namespace UnityUIBridge.Editor.Import
             }
 
             return new Vector2(1920, 1080);
+        }
+
+        private static Vector2 ResolveSourceCanvasSize(UnityUiBridgeRect sourceCanvasRect, Vector2 fallback)
+        {
+            if (sourceCanvasRect != null && sourceCanvasRect.width > 0f && sourceCanvasRect.height > 0f)
+            {
+                return new Vector2(sourceCanvasRect.width, sourceCanvasRect.height);
+            }
+
+            return fallback;
         }
 
         private static Vector2 ResolveRootSize(GameObject root, Vector2 fallback)
@@ -374,18 +405,14 @@ namespace UnityUIBridge.Editor.Import
             Undo.RegisterCreatedObjectUndo(eventSystem, "Create EventSystem");
         }
 
-        private readonly struct UnityUiBridgeCoordinateMap
+        private readonly struct UnityUiBridgeSourceFrameLayout
         {
-            private readonly UnityUiBridgeRect _sourceCanvasRect;
-
-            private UnityUiBridgeCoordinateMap(
-                UnityUiBridgeRect sourceCanvasRect,
+            private UnityUiBridgeSourceFrameLayout(
                 float scaleX,
                 float scaleY,
                 float offsetX,
                 float offsetY)
             {
-                _sourceCanvasRect = sourceCanvasRect;
                 ScaleX = scaleX;
                 ScaleY = scaleY;
                 OffsetX = offsetX;
@@ -397,44 +424,29 @@ namespace UnityUIBridge.Editor.Import
             public float OffsetX { get; }
             public float OffsetY { get; }
 
-            public static UnityUiBridgeCoordinateMap Create(
-                UnityUiBridgeRect sourceCanvasRect,
+            public static UnityUiBridgeSourceFrameLayout Create(
                 Vector2 sourceResolution,
                 Vector2 targetResolution,
                 bool preserveAspectRatio)
             {
-                var sourceWidth = sourceCanvasRect?.width > 0f ? sourceCanvasRect.width : sourceResolution.x;
-                var sourceHeight = sourceCanvasRect?.height > 0f ? sourceCanvasRect.height : sourceResolution.y;
+                var sourceWidth = sourceResolution.x;
+                var sourceHeight = sourceResolution.y;
                 var scaleX = targetResolution.x / Mathf.Max(sourceWidth, 1f);
                 var scaleY = targetResolution.y / Mathf.Max(sourceHeight, 1f);
 
                 if (!preserveAspectRatio)
                 {
-                    return new UnityUiBridgeCoordinateMap(sourceCanvasRect, scaleX, scaleY, 0f, 0f);
+                    return new UnityUiBridgeSourceFrameLayout(scaleX, scaleY, 0f, 0f);
                 }
 
                 var uniformScale = Mathf.Min(scaleX, scaleY);
                 var fittedWidth = sourceWidth * uniformScale;
                 var fittedHeight = sourceHeight * uniformScale;
-                return new UnityUiBridgeCoordinateMap(
-                    sourceCanvasRect,
+                return new UnityUiBridgeSourceFrameLayout(
                     uniformScale,
                     uniformScale,
                     (targetResolution.x - fittedWidth) * 0.5f,
                     (targetResolution.y - fittedHeight) * 0.5f);
-            }
-
-            public bool IsSourceCanvas(UnityUiBridgeRect rect)
-            {
-                if (_sourceCanvasRect == null || rect == null)
-                {
-                    return false;
-                }
-
-                return Mathf.Approximately(rect.x, _sourceCanvasRect.x)
-                    && Mathf.Approximately(rect.y, _sourceCanvasRect.y)
-                    && Mathf.Approximately(rect.width, _sourceCanvasRect.width)
-                    && Mathf.Approximately(rect.height, _sourceCanvasRect.height);
             }
         }
     }
