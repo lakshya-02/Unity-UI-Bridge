@@ -47,10 +47,11 @@ Codex should focus on:
 
 1. Stabilize Unity Canvas alignment.
 2. Add visual debug overlays for imported rectangles.
-3. Improve generated node hierarchy from image specs.
-4. Add sprite/asset extraction.
-5. Add optional segmentation model only after the importer is trustworthy.
-6. Add larger VLM reasoning only after deterministic CV + OCR is usable.
+3. Verify sprite/asset extraction quality on real screenshots.
+4. Improve generated node hierarchy from image specs.
+5. Design optional prompt-to-UI-concept generation as a replaceable adapter.
+6. Add optional segmentation model only after the importer is trustworthy.
+7. Add larger VLM reasoning only after deterministic CV + OCR is usable.
 
 ## Review Checklist
 
@@ -62,6 +63,7 @@ When reviewing changes, check:
 - Are generated files and model caches ignored by Git?
 - Are tests focused on behavior rather than implementation details?
 - Did the change avoid paid APIs and proprietary services?
+- Are online image-generation trials clearly optional and API-key gated?
 - Is the workflow understandable for a Unity user?
 
 ## Prompt For Codex
@@ -91,13 +93,28 @@ Constraints:
 
 ## Current Best Next Task
 
-Ask Codex to make the importer visually debuggable:
+Ask Codex to verify and tune the image breaker path:
 
 ```text
-Add an importer debug overlay mode that creates transparent colored rectangles for every generated node, labels each rectangle with node id and role, and lets the user toggle it from the Unity UI Bridge importer window. The debug overlay must import under the same Source Frame as the generated UI so alignment issues are easy to inspect.
+Task: Improve real-image reconstruction quality after sprite extraction
+
+Goal:
+Make a generated UI from C:\Users\Lakshya\Downloads\cyb.jpg import into Unity with actual cropped sprites assigned to panels/buttons/icons, while OCR text remains editable separately.
+
+Files likely involved:
+- Assets/UnityUIBridge/Tools/Python/image_to_ui_spec.py
+- Assets/UnityUIBridge/Editor/Import/UnityUiBridgeImporter.cs
+- Assets/UnityUIBridge/Editor/UnityUiBridgeImporterWindow.cs
+- Assets/UnityUIBridge/Docs/image-to-ui-pipeline.md
+
+Acceptance criteria:
+- Generated spec contains non-empty assets with project-relative sprite URIs.
+- Unity importer assigns assetRef sprites to visual Image components.
+- Python validation and unit tests pass.
+- dotnet build passes.
+- Generated files and model caches are not committed.
 ```
 
 ## Output Style
 
 Be concise and decisive. Prefer short implementation tasks with clear acceptance criteria over broad strategy notes.
-

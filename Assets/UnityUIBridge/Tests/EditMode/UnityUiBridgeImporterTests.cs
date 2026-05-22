@@ -1,5 +1,6 @@
 using System.IO;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityUIBridge.Editor.Import;
@@ -141,6 +142,66 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
+        public void ImporterAssignsSpriteAssetsToVisualNodes()
+        {
+            var assetPath = CreateTemporarySpriteAsset();
+            var json = @"{
+  ""schemaVersion"": ""1.0.0"",
+  ""document"": {
+    ""id"": ""doc.sprite-import"",
+    ""title"": ""Sprite Import"",
+    ""source"": { ""type"": ""screenshot"", ""uri"": ""sprite-import.png"" },
+    ""referenceResolution"": { ""width"": 64, ""height"": 64 },
+    ""coordinateSystem"": { ""origin"": ""top-left"", ""unit"": ""pixel"", ""yAxis"": ""down"" },
+    ""target"": { ""engine"": ""Unity"", ""uiSystem"": ""uGUI"", ""canvasMode"": ""screen-space-overlay"" }
+  },
+  ""assets"": [
+    {
+      ""id"": ""asset.panel"",
+      ""type"": ""panel"",
+      ""uri"": """ + assetPath.Replace("\\", "/") + @""",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""sourceNodeId"": ""node.panel""
+    }
+  ],
+  ""styles"": [],
+  ""nodes"": [
+    {
+      ""id"": ""node.canvas"",
+      ""role"": ""canvas"",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""children"": [
+        {
+          ""id"": ""node.panel"",
+          ""role"": ""panel"",
+          ""name"": ""Sprite Panel"",
+          ""rect"": { ""x"": 4, ""y"": 6, ""width"": 32, ""height"": 24 },
+          ""assetRef"": ""asset.panel""
+        }
+      ]
+    }
+  ],
+  ""interactions"": [],
+  ""extensions"": {}
+}";
+            var spec = UnityUiBridgeSpecParser.FromJson(json);
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Sprite Test",
+                CreateEventSystem = false
+            });
+
+            var panel = GameObject.Find("Sprite Panel");
+            var image = panel.GetComponent<Image>();
+
+            Assert.That(image.sprite, Is.Not.Null);
+            Assert.That(image.color, Is.EqualTo(Color.white));
+            Assert.That(AssetImporter.GetAtPath(assetPath), Is.TypeOf<TextureImporter>());
+            Assert.That(((TextureImporter)AssetImporter.GetAtPath(assetPath)).textureType, Is.EqualTo(TextureImporterType.Sprite));
+        }
+
+        [Test]
         public void ImporterCreatesDebugOverlayInsideSourceFrame()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
@@ -172,6 +233,27 @@ namespace UnityUIBridge.Tests.EditMode
         private static string SamplePath(string fileName)
         {
             return Path.Combine(Application.dataPath, "UnityUIBridge", "Samples", "Specs", fileName);
+        }
+
+        private static string CreateTemporarySpriteAsset()
+        {
+            const string assetPath = "Assets/UnityUIBridge/Generated/TestAssets/importer-sprite-test.png";
+            Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
+
+            var texture = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            for (var y = 0; y < texture.height; y++)
+            {
+                for (var x = 0; x < texture.width; x++)
+                {
+                    texture.SetPixel(x, y, new Color(0.1f, 0.8f, 1f, 1f));
+                }
+            }
+
+            texture.Apply();
+            File.WriteAllBytes(assetPath, texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+            return assetPath;
         }
 
         private static void AssertPosition(GameObject gameObject, float expectedX, float expectedY)

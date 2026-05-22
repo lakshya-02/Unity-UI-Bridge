@@ -18,12 +18,15 @@ class ImageToUiSpecTests(unittest.TestCase):
             temp_path = Path(temp_dir)
             image_path = temp_path / "synthetic-ui.png"
             output_path = temp_path / "synthetic-ui.json"
+            asset_output_dir = temp_path / "sprites"
             _write_synthetic_ui_png(image_path)
 
             spec = image_to_ui_spec.generate_spec(
                 image_path=image_path,
                 title="Synthetic Test UI",
                 run_ocr=False,
+                asset_output_dir=asset_output_dir,
+                asset_uri_prefix="Assets/UnityUIBridge/Generated/Sprites/synthetic-ui",
             )
             image_to_ui_spec.write_spec(spec, output_path)
 
@@ -31,12 +34,23 @@ class ImageToUiSpecTests(unittest.TestCase):
                 validate_specs.default_schema_path(project_root),
                 output_path,
             )
+            asset_files_exist = all((asset_output_dir / Path(asset["uri"]).name).exists() for asset in spec["assets"])
 
         self.assertEqual([], errors)
         self.assertEqual("1.0.0", spec["schemaVersion"])
         self.assertEqual({"width": 640, "height": 360}, spec["document"]["referenceResolution"])
         self.assertEqual("canvas", spec["nodes"][0]["role"])
         self.assertGreaterEqual(len(spec["nodes"][0]["children"]), 2)
+        self.assertGreaterEqual(len(spec["assets"]), 2)
+
+        asset_ids = {asset["id"] for asset in spec["assets"]}
+        visual_nodes = [node for node in spec["nodes"][0]["children"] if node["role"] != "text"]
+
+        self.assertTrue(asset_files_exist)
+        self.assertTrue(all(node.get("assetRef") in asset_ids for node in visual_nodes))
+        self.assertTrue(
+            any(asset["type"] == "background" and asset["sourceNodeId"] == "node.background" for asset in spec["assets"])
+        )
 
     def test_cli_writes_valid_spec_file(self):
         project_root = Path(__file__).resolve().parents[5]
@@ -61,9 +75,11 @@ class ImageToUiSpecTests(unittest.TestCase):
             )
 
             payload = json.loads(output_path.read_text(encoding="utf-8"))
+            generated_assets = payload["assets"]
 
         self.assertEqual(0, exit_code)
         self.assertEqual("CLI Synthetic", payload["document"]["title"])
+        self.assertGreaterEqual(len(generated_assets), 2)
 
 
 def _write_synthetic_ui_png(path):

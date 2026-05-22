@@ -48,15 +48,35 @@ def generate_spec(
     title: str | None = None,
     run_ocr: bool = True,
     max_regions: int = 32,
+    asset_output_dir: Path | str | None = None,
+    asset_uri_prefix: str | None = None,
+    include_background: bool = True,
 ) -> dict:
     path = Path(image_path)
     image, width, height = _load_image(path)
     regions = _detect_layout_regions(image, max_regions=max_regions)
     ocr_regions = _detect_text_regions(path) if run_ocr else []
+    assets, asset_refs = _extract_assets(
+        path,
+        image,
+        width,
+        height,
+        regions,
+        asset_output_dir=asset_output_dir,
+        asset_uri_prefix=asset_uri_prefix,
+        include_background=include_background,
+    )
 
     document_id = _safe_id(path.stem or "ui")
     nodes = [_canvas_node(width, height)]
-    canvas_children = [_node_from_region(index, region) for index, region in enumerate(regions, start=1)]
+    canvas_children = []
+    if include_background and "node.background" in asset_refs:
+        canvas_children.append(_background_node(width, height, asset_refs["node.background"]))
+
+    canvas_children.extend(
+        _node_from_region(index, region, asset_refs.get(f"node.detected-{index:03d}"))
+        for index, region in enumerate(regions, start=1)
+    )
 
     text_start = len(canvas_children) + 1
     canvas_children.extend(
@@ -90,7 +110,7 @@ def generate_spec(
                 "canvasMode": "screen-space-overlay",
             },
         },
-        "assets": [],
+        "assets": assets,
         "styles": _default_styles(),
         "nodes": nodes,
         "interactions": _interactions_for_nodes(canvas_children),
@@ -99,6 +119,7 @@ def generate_spec(
                 "generator": "image_to_ui_spec.py",
                 "layoutDetector": "opencv-contours",
                 "ocr": "paddleocr-with-easyocr-fallback" if run_ocr else "disabled",
+                "assetExtractor": "pil-region-cropper" if asset_output_dir is not None else "disabled",
             }
         },
     }
@@ -117,14 +138,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--title", default=None, help="Document title.")
     parser.add_argument("--no-ocr", action="store_true", help="Disable PaddleOCR text detection.")
     parser.add_argument("--max-regions", type=int, default=32, help="Maximum layout regions to emit.")
+    parser.add_argument("--asset-output-dir", type=Path, default=None, help="Directory for cropped sprite assets.")
+    parser.add_argument("--asset-uri-prefix", default=None, help="URI prefix written into asset references.")
+    parser.add_argument("--no-background", action="store_true", help="Do not emit a full-image background sprite.")
     parser.add_argument("--project-root", type=Path, default=validate_specs.default_project_root())
     args = parser.parse_args(argv)
+
+    asset_output_dir = args.asset_output_dir or _default_asset_output_dir(args.output, args.image)
+    asset_uri_prefix = args.asset_uri_prefix or _default_asset_uri_prefix(args.project_root, asset_output_dir)
 
     spec = generate_spec(
         image_path=args.image,
         title=args.title,
         run_ocr=not args.no_ocr,
         max_regions=args.max_regions,
+        asset_output_dir=asset_output_dir,
+        asset_uri_prefix=asset_uri_prefix,
+        include_background=not args.no_background,
     )
     write_spec(spec, args.output)
 
@@ -155,6 +185,111 @@ def _load_image(path: Path):
         rgb = loaded.convert("RGB")
         width, height = rgb.size
         return np.array(rgb), width, height
+
+
+def _extract_assets(
+    image_path: Path,
+    image,
+    image_width: int,
+    image_height: int,
+    regions: list[Region],
+    asset_output_dir: Path | str | None,
+    asset_uri_prefix: str | None,
+    include_background: bool,
+) -> tuple[list[dict], dict[str, str]]:
+    if asset_output_dir is None:
+        return [], {}
+
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise SystemExit(
+            "Missing Pillow. Install it with "
+            "`python -m pip install -r Assets/UnityUIBridge/Tools/Python/requirements-ai.txt`."
+        ) from exc
+
+    output_dir = Path(asset_output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source_image = Image.fromarray(image)
+    assets: list[dict] = []
+    asset_refs: dict[str, str] = {}
+
+    if include_background:
+        asset_id = "asset.background"
+        file_name = "source-background.png"
+        asset_path = output_dir / file_name
+        source_image.save(asset_path)
+        assets.append(
+            {
+                "id": asset_id,
+                "type": "background",
+                "uri": _asset_uri(asset_path, asset_uri_prefix),
+                "rect": _rect(0, 0, image_width, image_height),
+                "sourceNodeId": "node.background",
+            }
+        )
+        asset_refs["node.background"] = asset_id
+
+    for index, region in enumerate(regions, start=1):
+        node_id = f"node.detected-{index:03d}"
+        asset_id = f"asset.detected-{index:03d}"
+        crop_rect = _expanded_crop_rect(region, image_width, image_height)
+        file_name = f"detected-{index:03d}-{region.role}.png"
+        asset_path = output_dir / file_name
+        source_image.crop(crop_rect).save(asset_path)
+
+        assets.append(
+            {
+                "id": asset_id,
+                "type": _asset_type_for_role(region.role),
+                "uri": _asset_uri(asset_path, asset_uri_prefix),
+                "rect": _rect(region.x, region.y, region.width, region.height),
+                "sourceNodeId": node_id,
+            }
+        )
+        asset_refs[node_id] = asset_id
+
+    return assets, asset_refs
+
+
+def _default_asset_output_dir(output_path: Path, image_path: Path) -> Path:
+    stem = _safe_id(image_path.stem or output_path.stem or "generated-ui")
+    output_parent = output_path.parent
+    if output_parent.name.lower() == "specs":
+        return output_parent.parent / "Sprites" / stem
+    return output_parent / "Sprites" / stem
+
+
+def _default_asset_uri_prefix(project_root: Path, asset_output_dir: Path) -> str:
+    output_dir = asset_output_dir.resolve()
+    root = project_root.resolve()
+    try:
+        return output_dir.relative_to(root).as_posix()
+    except ValueError:
+        return output_dir.as_posix()
+
+
+def _asset_uri(asset_path: Path, asset_uri_prefix: str | None) -> str:
+    if not asset_uri_prefix:
+        return asset_path.as_posix()
+    return f"{asset_uri_prefix.rstrip('/')}/{asset_path.name}"
+
+
+def _expanded_crop_rect(region: Region, image_width: int, image_height: int) -> tuple[int, int, int, int]:
+    padding = 2
+    left = max(0, region.x - padding)
+    top = max(0, region.y - padding)
+    right = min(image_width, region.x + region.width + padding)
+    bottom = min(image_height, region.y + region.height + padding)
+    return left, top, right, bottom
+
+
+def _asset_type_for_role(role: str) -> str:
+    if role in {"button", "panel", "input", "toggle", "slider"}:
+        return "panel"
+    if role == "icon":
+        return "icon"
+    return "sprite"
 
 
 def _detect_layout_regions(image, max_regions: int) -> list[Region]:
@@ -387,7 +522,22 @@ def _canvas_node(width: int, height: int) -> dict:
     }
 
 
-def _node_from_region(index: int, region: Region) -> dict:
+def _background_node(width: int, height: int, asset_ref: str) -> dict:
+    return {
+        "id": "node.background",
+        "role": "image",
+        "name": "Source Background",
+        "rect": _rect(0, 0, width, height),
+        "assetRef": asset_ref,
+        "confidence": 1.0,
+        "provenance": {
+            "adapter": "source-image-copier",
+            "sourceRect": _rect(0, 0, width, height),
+        },
+    }
+
+
+def _node_from_region(index: int, region: Region, asset_ref: str | None = None) -> dict:
     node_id = f"node.detected-{index:03d}"
     node = {
         "id": node_id,
@@ -401,6 +551,8 @@ def _node_from_region(index: int, region: Region) -> dict:
             "sourceRect": _rect(region.x, region.y, region.width, region.height),
         },
     }
+    if asset_ref is not None:
+        node["assetRef"] = asset_ref
     if region.role == "button":
         node["interactionRef"] = f"interaction.detected-{index:03d}"
     return node

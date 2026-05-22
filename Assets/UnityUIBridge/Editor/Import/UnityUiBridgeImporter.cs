@@ -1,3 +1,4 @@
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -280,6 +281,7 @@ namespace UnityUIBridge.Editor.Import
             {
                 case "button":
                     var buttonImage = EnsureImage(gameObject, new Color(0.15f, 0.25f, 0.35f, 0.85f));
+                    TryApplyAssetSprite(spec, node, buttonImage);
                     var button = gameObject.AddComponent<Button>();
                     button.targetGraphic = buttonImage;
                     break;
@@ -294,30 +296,31 @@ namespace UnityUIBridge.Editor.Import
                     break;
                 case "input":
                     var inputImage = EnsureImage(gameObject, new Color(0.08f, 0.09f, 0.1f, 0.85f));
+                    TryApplyAssetSprite(spec, node, inputImage);
                     var input = gameObject.AddComponent<InputField>();
                     input.targetGraphic = inputImage;
                     break;
                 case "toggle":
-                    EnsureImage(gameObject, new Color(0.1f, 0.16f, 0.2f, 0.85f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(0.1f, 0.16f, 0.2f, 0.85f)));
                     gameObject.AddComponent<Toggle>();
                     break;
                 case "slider":
-                    EnsureImage(gameObject, new Color(0.1f, 0.16f, 0.2f, 0.85f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(0.1f, 0.16f, 0.2f, 0.85f)));
                     gameObject.AddComponent<Slider>();
                     break;
                 case "group":
                     break;
                 case "panel":
-                    EnsureImage(gameObject, new Color(0.06f, 0.1f, 0.16f, 0.7f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(0.06f, 0.1f, 0.16f, 0.7f)));
                     break;
                 case "icon":
-                    EnsureImage(gameObject, new Color(0.35f, 0.85f, 1f, 0.9f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(0.35f, 0.85f, 1f, 0.9f)));
                     break;
                 case "image":
-                    EnsureImage(gameObject, new Color(1f, 1f, 1f, 0.35f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(1f, 1f, 1f, 0.35f)));
                     break;
                 default:
-                    EnsureImage(gameObject, new Color(1f, 0.85f, 0.25f, 0.35f));
+                    TryApplyAssetSprite(spec, node, EnsureImage(gameObject, new Color(1f, 0.85f, 0.25f, 0.35f)));
                     break;
             }
         }
@@ -333,6 +336,86 @@ namespace UnityUIBridge.Editor.Import
             image.color = color;
             image.raycastTarget = true;
             return image;
+        }
+
+        private static bool TryApplyAssetSprite(UnityUiBridgeSpec spec, UnityUiBridgeNode node, Image image)
+        {
+            var asset = spec.FindAsset(node.assetRef);
+            if (asset == null || string.IsNullOrWhiteSpace(asset.uri))
+            {
+                return false;
+            }
+
+            var assetPath = ResolveAssetPath(asset.uri);
+            if (string.IsNullOrWhiteSpace(assetPath))
+            {
+                return false;
+            }
+
+            EnsureSpriteImportSettings(assetPath);
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+            if (sprite == null)
+            {
+                return false;
+            }
+
+            image.sprite = sprite;
+            image.type = asset.nineSlice != null ? Image.Type.Sliced : Image.Type.Simple;
+            image.color = Color.white;
+            image.preserveAspect = false;
+            return true;
+        }
+
+        private static string ResolveAssetPath(string uri)
+        {
+            var normalized = uri.Replace('\\', '/');
+            if (normalized.StartsWith("Assets/"))
+            {
+                return normalized;
+            }
+
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "..")).Replace('\\', '/');
+            if (!Path.IsPathRooted(normalized))
+            {
+                var candidate = Path.GetFullPath(Path.Combine(projectRoot, normalized)).Replace('\\', '/');
+                return candidate.StartsWith(projectRoot) ? candidate.Substring(projectRoot.Length + 1) : null;
+            }
+
+            var fullPath = Path.GetFullPath(normalized).Replace('\\', '/');
+            return fullPath.StartsWith(projectRoot) ? fullPath.Substring(projectRoot.Length + 1) : null;
+        }
+
+        private static void EnsureSpriteImportSettings(string assetPath)
+        {
+            var textureImporter = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (textureImporter == null)
+            {
+                return;
+            }
+
+            var changed = false;
+            if (textureImporter.textureType != TextureImporterType.Sprite)
+            {
+                textureImporter.textureType = TextureImporterType.Sprite;
+                changed = true;
+            }
+
+            if (textureImporter.spriteImportMode != SpriteImportMode.Single)
+            {
+                textureImporter.spriteImportMode = SpriteImportMode.Single;
+                changed = true;
+            }
+
+            if (!textureImporter.alphaIsTransparency)
+            {
+                textureImporter.alphaIsTransparency = true;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                textureImporter.SaveAndReimport();
+            }
         }
 
         private static void AddLayoutGroup(GameObject gameObject, UnityUiBridgeNode node)

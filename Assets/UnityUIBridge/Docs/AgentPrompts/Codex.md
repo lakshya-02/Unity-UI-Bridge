@@ -37,11 +37,14 @@ Prioritize fixes that make the pipeline usable inside Unity before adding larger
 2. Add a visual debug mode that draws source image bounds and detected rectangles.
 3. Improve RectTransform anchoring/pivot behavior for generated nodes.
 4. Load generated specs from `Assets/UnityUIBridge/Generated/Specs/`.
-5. Add asset extraction only after placement is stable.
+5. Keep improving sprite/asset extraction for real screenshots.
+6. Add prompt-to-UI concept generation only as an optional adapter after approval.
 
 ## Guardrails
 
 - Do not install large models without explicit approval.
+- Do not add NVIDIA NIM, Hugging Face, local diffusion, or other image-generation backends without explicit approval.
+- Keep any online trial backend optional and API-key gated.
 - Do not commit model weights, generated outputs, `Library/`, `Temp/`, `Logs/`, or IDE project files.
 - Do not add paid APIs or proprietary service dependencies.
 - Keep `Apply Layout Groups` off by default for reconstruction imports.
@@ -73,4 +76,3 @@ Report:
 - Verification results
 - Commit hash
 - What to test next in Unity
-

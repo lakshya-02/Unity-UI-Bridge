@@ -52,7 +52,8 @@ The importer currently creates:
 - Import under a selected/existing scene Canvas
 - Fit source screenshot coordinates to the target Canvas size
 - RectTransform hierarchy from spec nodes
-- Image placeholders for panels, icons, image nodes, and unknown nodes
+- Image components for panels, icons, image nodes, and unknown nodes
+- Sprite assignment for generated `assetRef` PNG files
 - Button components for `button` nodes
 - Text components for `text` nodes
 - InputField, Toggle, and Slider components for matching roles
@@ -66,10 +67,10 @@ If placement looks wrong, delete the imported root, select the Canvas you actual
 
 ## Current Limitations
 
-- Extracted sprite files referenced by `assetRef` are not loaded yet; placeholder images are used.
+- Sprite assignment expects assets to live inside the Unity project, usually under `Assets/UnityUIBridge/Generated/Sprites/`.
 - Style color dictionaries are validated by JSON Schema but not fully mapped into Unity components yet.
 - Runtime import is not implemented yet; this is editor-only.
-- AI extraction, segmentation, OCR, and model adapters are not implemented yet.
+- Vision-language hierarchy reasoning and advanced segmentation adapters are not implemented yet.
 
 ## Model and API Policy
 
