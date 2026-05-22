@@ -69,7 +69,7 @@ Use the `Image To Spec` section:
 - `Run OCR`: enable OCR text nodes.
 - `Import After Generate`: immediately import the generated spec into the target Canvas.
 
-For scene alignment, select your target Canvas first or click `Use Scene Canvas`.
+For scene alignment, select your target Canvas first or click `Use Scene Canvas`. Keep `Fit To Target Canvas` and `Fill Target Canvas` enabled for normal full-screen reconstruction.
 
 ## Planned Prompt To Concept Adapter
 

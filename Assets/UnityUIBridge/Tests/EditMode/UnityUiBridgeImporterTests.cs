@@ -106,7 +106,7 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(sourceFrame, Is.Not.Null);
 
             var menuPanel = GameObject.Find("Menu Panel");
-            AssertSize(importedRoot, 1280f, 720f);
+            AssertRectSize(importedRoot, 1280f, 720f);
             AssertSize(sourceFrame.gameObject, 1920f, 1080f);
             AssertScale(sourceFrame.gameObject, 0.666667f, 0.666667f);
             AssertPosition(sourceFrame.gameObject, 0f, 0f);
@@ -116,7 +116,7 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
-        public void ImporterLetterboxesSourceFrameWhenTargetAspectDiffers()
+        public void ImporterFillsTargetCanvasByDefaultWhenAspectDiffers()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
             var targetCanvasObject = new GameObject("Square Scene Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
@@ -137,8 +137,61 @@ namespace UnityUIBridge.Tests.EditMode
 
             var sourceFrame = importedRoot.transform.Find("Source Frame");
             Assert.That(sourceFrame, Is.Not.Null);
+            AssertScale(sourceFrame.gameObject, 0.925926f, 0.925926f);
+            AssertPosition(sourceFrame.gameObject, -388.8889f, 0f);
+        }
+
+        [Test]
+        public void ImporterCanLetterboxSourceFrameWhenRequested()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+            var targetCanvasObject = new GameObject("Square Letterbox Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            _root = targetCanvasObject;
+
+            var targetRect = targetCanvasObject.GetComponent<RectTransform>();
+            targetRect.sizeDelta = new Vector2(1000f, 1000f);
+            targetCanvasObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1000f, 1000f);
+
+            var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Letterbox Test",
+                CreateEventSystem = false,
+                TargetCanvas = targetCanvasObject.GetComponent<Canvas>(),
+                FitToTargetCanvas = true,
+                PreserveAspectRatio = true,
+                FillTargetCanvas = false
+            });
+
+            var sourceFrame = importedRoot.transform.Find("Source Frame");
+            Assert.That(sourceFrame, Is.Not.Null);
             AssertScale(sourceFrame.gameObject, 0.520833f, 0.520833f);
             AssertPosition(sourceFrame.gameObject, 0f, -218.75f);
+        }
+
+        [Test]
+        public void ImporterStretchesRootInsideTargetCanvas()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+            var targetCanvasObject = new GameObject("Stretch Scene Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            _root = targetCanvasObject;
+
+            var targetRect = targetCanvasObject.GetComponent<RectTransform>();
+            targetRect.sizeDelta = new Vector2(1280f, 720f);
+            targetCanvasObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1280f, 720f);
+
+            var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Stretch Test",
+                CreateEventSystem = false,
+                TargetCanvas = targetCanvasObject.GetComponent<Canvas>(),
+                FitToTargetCanvas = true
+            });
+
+            var rectTransform = importedRoot.GetComponent<RectTransform>();
+            Assert.That(rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(rectTransform.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(rectTransform.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(rectTransform.offsetMax, Is.EqualTo(Vector2.zero));
         }
 
         [Test]
@@ -337,6 +390,13 @@ namespace UnityUIBridge.Tests.EditMode
             var rectTransform = gameObject.GetComponent<RectTransform>();
             Assert.That(rectTransform.sizeDelta.x, Is.EqualTo(expectedWidth).Within(0.001f));
             Assert.That(rectTransform.sizeDelta.y, Is.EqualTo(expectedHeight).Within(0.001f));
+        }
+
+        private static void AssertRectSize(GameObject gameObject, float expectedWidth, float expectedHeight)
+        {
+            var rectTransform = gameObject.GetComponent<RectTransform>();
+            Assert.That(rectTransform.rect.width, Is.EqualTo(expectedWidth).Within(0.001f));
+            Assert.That(rectTransform.rect.height, Is.EqualTo(expectedHeight).Within(0.001f));
         }
 
         private static void AssertScale(GameObject gameObject, float expectedX, float expectedY)

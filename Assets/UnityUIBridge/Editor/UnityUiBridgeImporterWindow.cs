@@ -16,6 +16,7 @@ namespace UnityUIBridge.Editor
         private Canvas _targetCanvas;
         private bool _fitToTargetCanvas = true;
         private bool _preserveAspectRatio = true;
+        private bool _fillTargetCanvas = true;
         private bool _createDebugOverlay = false;
         private string _imagePath = "Assets/UnityUIBridge/Generated/SmokeTests/synthetic-ui.png";
         private string _generatedSpecPath = "Assets/UnityUIBridge/Generated/Specs/generated-ui.json";
@@ -38,6 +39,7 @@ namespace UnityUIBridge.Editor
                 false,
                 UnityUiBridgeImporter.FindSceneCanvasForImport(),
                 true,
+                true,
                 true);
         }
 
@@ -50,6 +52,7 @@ namespace UnityUIBridge.Editor
             _createEventSystem = EditorGUILayout.Toggle("Create EventSystem", _createEventSystem);
             _fitToTargetCanvas = EditorGUILayout.Toggle("Fit To Target Canvas", _fitToTargetCanvas);
             _preserveAspectRatio = EditorGUILayout.Toggle("Preserve Aspect Ratio", _preserveAspectRatio);
+            _fillTargetCanvas = EditorGUILayout.Toggle("Fill Target Canvas", _fillTargetCanvas);
             _applyLayoutGroups = EditorGUILayout.Toggle("Apply Layout Groups", _applyLayoutGroups);
             _createDebugOverlay = EditorGUILayout.Toggle("Create Debug Overlay", _createDebugOverlay);
 
@@ -79,6 +82,7 @@ namespace UnityUIBridge.Editor
                         _targetCanvas,
                         _fitToTargetCanvas,
                         _preserveAspectRatio,
+                        _fillTargetCanvas,
                         _createDebugOverlay);
             }
         }
@@ -116,6 +120,7 @@ namespace UnityUIBridge.Editor
             Canvas targetCanvas = null,
             bool fitToTargetCanvas = true,
             bool preserveAspectRatio = true,
+            bool fillTargetCanvas = true,
             bool createDebugOverlay = false)
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(specPath);
@@ -127,6 +132,7 @@ namespace UnityUIBridge.Editor
                 TargetCanvas = targetCanvas,
                 FitToTargetCanvas = fitToTargetCanvas,
                 PreserveAspectRatio = preserveAspectRatio,
+                FillTargetCanvas = fillTargetCanvas,
                 CreateDebugOverlay = createDebugOverlay
             });
         }
@@ -174,6 +180,7 @@ namespace UnityUIBridge.Editor
                     _targetCanvas,
                     _fitToTargetCanvas,
                     _preserveAspectRatio,
+                    _fillTargetCanvas,
                     _createDebugOverlay);
             }
         }

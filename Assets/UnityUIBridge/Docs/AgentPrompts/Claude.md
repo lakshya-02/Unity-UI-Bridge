@@ -46,12 +46,13 @@ Codex should focus on:
 ## Priority Plan
 
 1. Stabilize Unity Canvas alignment.
-2. Add visual debug overlays for imported rectangles.
-3. Verify sprite/asset extraction quality on real screenshots.
-4. Improve generated node hierarchy from image specs.
-5. Design optional prompt-to-UI-concept generation as a replaceable adapter.
-6. Add optional segmentation model only after the importer is trustworthy.
-7. Add larger VLM reasoning only after deterministic CV + OCR is usable.
+2. Verify real-image reconstruction against 3-4 test images.
+3. Improve generated node hierarchy from image specs.
+4. Improve contour detection and button classification.
+5. Add OCR confidence filtering and text clustering.
+6. Design optional prompt-to-UI-concept generation as a replaceable adapter.
+7. Add optional segmentation model only after the importer is trustworthy.
+8. Add larger VLM reasoning only after deterministic CV + OCR is usable.
 
 ## Review Checklist
 
@@ -65,6 +66,19 @@ When reviewing changes, check:
 - Did the change avoid paid APIs and proprietary services?
 - Are online image-generation trials clearly optional and API-key gated?
 - Is the workflow understandable for a Unity user?
+- Does a generated background fill the selected Canvas instead of appearing as a small island?
+- Are detected buttons transparent hotspots over the background unless region-sprite debug mode is explicitly enabled?
+
+## Open-Source Image Processing Backlog
+
+Use these as optional improvement areas after the Canvas fit path is stable:
+
+- OpenCV: keep as the primary deterministic detector. Improve with adaptive thresholding, multi-scale contour detection, noise reduction, and confidence scoring.
+- Tesseract OCR: evaluate as an optional OCR adapter next to PaddleOCR and EasyOCR, especially for stylized or pixel fonts.
+- ImageMagick: consider as an optional preprocessing CLI for contrast enhancement, normalization, and noise reduction before OpenCV/OCR.
+- scikit-image: consider for advanced filters, morphology, and alternative edge detectors when OpenCV contouring is weak.
+- Sprite extraction: improve padding, alpha preservation, and edge smoothing, but keep visible cropped sprites behind explicit debug/advanced mode.
+- OCR cleanup: add confidence filtering, context-aware text validation, and clustering for related text regions.
 
 ## Prompt For Codex
 
@@ -93,26 +107,33 @@ Constraints:
 
 ## Current Best Next Task
 
-Ask Codex to verify and tune the image breaker path:
+Ask Codex to verify Canvas-fill reconstruction and prepare the detector-quality pass:
 
 ```text
-Task: Improve real-image reconstruction quality after sprite extraction
+Task: Verify full-screen image reconstruction and prepare detector improvements
 
 Goal:
-Make a generated UI from C:\Users\Lakshya\Downloads\cyb.jpg import into Unity with actual cropped sprites assigned to panels/buttons/icons, while OCR text remains editable separately.
+Make generated UIs import as one full-screen background image on the selected Canvas, with transparent Unity Button hotspots and editable OCR text layered on top.
 
 Files likely involved:
 - Assets/UnityUIBridge/Tools/Python/image_to_ui_spec.py
 - Assets/UnityUIBridge/Editor/Import/UnityUiBridgeImporter.cs
 - Assets/UnityUIBridge/Editor/UnityUiBridgeImporterWindow.cs
+- Assets/UnityUIBridge/Tests/EditMode/UnityUiBridgeImporterTests.cs
 - Assets/UnityUIBridge/Docs/image-to-ui-pipeline.md
 
 Acceptance criteria:
-- Generated spec contains non-empty assets with project-relative sprite URIs.
-- Unity importer assigns assetRef sprites to visual Image components.
+- Generated spec contains one background asset by default.
+- Region sprite crops are only emitted with --emit-region-sprites.
+- Import root stretches inside the selected Canvas.
+- Source Frame fills the target Canvas by default, with a letterbox option still available.
+- Unity buttons are transparent hotspots when a background is present.
 - Python validation and unit tests pass.
 - dotnet build passes.
 - Generated files and model caches are not committed.
+
+Next research after this:
+Evaluate OpenCV adaptive thresholding, multi-scale contour detection, OCR confidence filtering, and optional Tesseract/scikit-image/ImageMagick adapters using 3-4 user-provided test images.
 ```
 
 ## Output Style

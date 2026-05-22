@@ -50,7 +50,8 @@ The importer currently creates:
 - GraphicRaycaster
 - Optional EventSystem
 - Import under a selected/existing scene Canvas
-- Fit source screenshot coordinates to the target Canvas size
+- Stretch the imported root inside the selected scene Canvas
+- Fill the target Canvas by default, with optional letterbox fitting
 - RectTransform hierarchy from spec nodes
 - Image components for panels, icons, image nodes, and unknown nodes
 - Sprite assignment for generated `assetRef` PNG files
@@ -64,7 +65,9 @@ This is intentionally not a pixel-perfect renderer yet. It is a reconstruction s
 
 For screenshot reconstruction, keep `Apply Layout Groups` off. Unity layout groups intentionally reposition their children, which is useful for responsive UI authoring but wrong when the goal is to preserve absolute positions from the source spec.
 
-If placement looks wrong, delete the imported root, select the Canvas you actually want to import into, open `Tools > Unity UI Bridge > Importer`, click `Use Scene Canvas`, and import with `Fit To Target Canvas` on.
+If placement looks wrong, delete the imported root, select the Canvas you actually want to import into, open `Tools > Unity UI Bridge > Importer`, click `Use Scene Canvas`, and import with `Fit To Target Canvas` and `Fill Target Canvas` on.
+
+Use `Fill Target Canvas` for normal image reconstruction. Disable it only when you want letterboxing and no cropping.
 
 ## Current Limitations
 

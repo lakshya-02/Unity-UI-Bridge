@@ -15,6 +15,7 @@ namespace UnityUIBridge.Editor.Import
         public Canvas TargetCanvas;
         public bool FitToTargetCanvas = true;
         public bool PreserveAspectRatio = true;
+        public bool FillTargetCanvas = true;
         public bool CreateDebugOverlay = false;
     }
 
@@ -35,7 +36,9 @@ namespace UnityUIBridge.Editor.Import
             var root = options.TargetCanvas != null
                 ? CreateImportRoot(options.TargetCanvas, options.RootName, referenceResolution, options)
                 : CreateCanvas(options.RootName, referenceResolution, spec.document?.target?.canvasMode);
-            var targetResolution = ResolveRootSize(root, referenceResolution);
+            var targetResolution = options.TargetCanvas != null && options.FitToTargetCanvas
+                ? ResolveTargetCanvasSize(options.TargetCanvas, referenceResolution)
+                : ResolveRootSize(root, referenceResolution);
             var sourceFrame = CreateSourceFrame(
                 root.transform,
                 canvasNode?.rect,
@@ -118,7 +121,8 @@ namespace UnityUIBridge.Editor.Import
             var layout = UnityUiBridgeSourceFrameLayout.Create(
                 sourceSize,
                 options.FitToTargetCanvas ? targetResolution : sourceSize,
-                options.PreserveAspectRatio);
+                options.PreserveAspectRatio,
+                options.FillTargetCanvas);
             rectTransform.anchoredPosition = new Vector2(layout.OffsetX, -layout.OffsetY);
             frame.transform.localScale = new Vector3(layout.ScaleX, layout.ScaleY, 1f);
             return frame.transform;
@@ -130,23 +134,26 @@ namespace UnityUIBridge.Editor.Import
             Vector2 referenceResolution,
             UnityUiBridgeImportOptions options)
         {
-            var targetSize = ResolveTargetCanvasSize(targetCanvas, referenceResolution);
             var root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName);
             Undo.RegisterCreatedObjectUndo(root, "Import Unity UI Bridge Spec");
             root.transform.SetParent(targetCanvas.transform, false);
 
             var rectTransform = root.AddComponent<RectTransform>();
+
+            if (options.FitToTargetCanvas)
+            {
+                rectTransform.anchorMin = Vector2.zero;
+                rectTransform.anchorMax = Vector2.one;
+                rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                rectTransform.offsetMin = Vector2.zero;
+                rectTransform.offsetMax = Vector2.zero;
+                return root;
+            }
+
             rectTransform.anchorMin = new Vector2(0f, 1f);
             rectTransform.anchorMax = new Vector2(0f, 1f);
             rectTransform.pivot = new Vector2(0f, 1f);
             rectTransform.anchoredPosition = Vector2.zero;
-            rectTransform.sizeDelta = targetSize;
-
-            if (options.FitToTargetCanvas)
-            {
-                return root;
-            }
-
             rectTransform.sizeDelta = referenceResolution;
             return root;
         }
@@ -637,7 +644,8 @@ namespace UnityUIBridge.Editor.Import
             public static UnityUiBridgeSourceFrameLayout Create(
                 Vector2 sourceResolution,
                 Vector2 targetResolution,
-                bool preserveAspectRatio)
+                bool preserveAspectRatio,
+                bool fillTargetCanvas)
             {
                 var sourceWidth = sourceResolution.x;
                 var sourceHeight = sourceResolution.y;
@@ -649,7 +657,7 @@ namespace UnityUIBridge.Editor.Import
                     return new UnityUiBridgeSourceFrameLayout(scaleX, scaleY, 0f, 0f);
                 }
 
-                var uniformScale = Mathf.Min(scaleX, scaleY);
+                var uniformScale = fillTargetCanvas ? Mathf.Max(scaleX, scaleY) : Mathf.Min(scaleX, scaleY);
                 var fittedWidth = sourceWidth * uniformScale;
                 var fittedHeight = sourceHeight * uniformScale;
                 return new UnityUiBridgeSourceFrameLayout(
