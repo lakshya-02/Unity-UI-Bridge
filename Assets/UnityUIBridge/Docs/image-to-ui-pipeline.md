@@ -26,11 +26,13 @@ Generate and validate a spec:
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json
 ```
 
-By default, the generator also writes cropped sprite assets next to the generated spec:
+By default, the generator writes one full-image background sprite next to the generated spec:
 
 ```text
 Assets/UnityUIBridge/Generated/Sprites/<image-name>/
 ```
+
+This is the normal reconstruction mode. It prevents duplicate cropped frames by letting the source image cover the full Canvas while detected buttons become transparent Unity `Button` hotspots on top.
 
 Disable OCR for a faster layout-only pass:
 
@@ -42,6 +44,12 @@ Disable the full-image background fallback when you only want cropped regions:
 
 ```powershell
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json --no-background
+```
+
+Emit visible cropped sprites for every detected region only when debugging segmentation:
+
+```powershell
+python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json --emit-region-sprites
 ```
 
 Generated specs and sprites under `Assets/UnityUIBridge/Generated/` are ignored by Git. Move a generated spec into `Assets/UnityUIBridge/Samples/Specs/` only when it is curated enough to become a fixture.
@@ -78,8 +86,9 @@ Recommended adapter rules:
 
 - Detects major layout regions with OpenCV contours.
 - Classifies broad regions as panels, buttons, icons, or images.
-- Crops detected visual regions into reusable PNG sprite assets.
 - Emits a source-background asset so first-pass imports visually line up with the reference image.
+- Converts detected controls into transparent Unity Button hotspots by default.
+- Can optionally crop detected visual regions into PNG sprite assets for segmentation debugging.
 - Detects text using PaddleOCR when available, with EasyOCR fallback on Windows.
 - Emits a valid Unity UI Bridge v1 JSON spec.
 - Imports the generated spec into uGUI and assigns referenced sprites to Image/Button/Panel nodes.
@@ -87,7 +96,7 @@ Recommended adapter rules:
 ## Current Limits
 
 - This is a first-pass reconstruction scaffold, not pixel-perfect cloning.
-- Cropped assets may include baked text or background pixels until stronger segmentation/inpainting adapters are added.
+- Optional cropped region assets may include baked text or background pixels until stronger segmentation/inpainting adapters are added.
 - Stylized pixel fonts can confuse OCR and may need manual text cleanup.
 - Buttons are inferred from geometry and may need review.
 - Advanced vision-language hierarchy reasoning is not installed yet.

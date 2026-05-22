@@ -280,8 +280,13 @@ namespace UnityUIBridge.Editor.Import
             switch (node.role)
             {
                 case "button":
-                    var buttonImage = EnsureImage(gameObject, new Color(0.15f, 0.25f, 0.35f, 0.85f));
-                    TryApplyAssetSprite(spec, node, buttonImage);
+                    var buttonImage = EnsureImage(gameObject, ResolveButtonFallbackColor(spec, node));
+                    var hasButtonSprite = TryApplyAssetSprite(spec, node, buttonImage);
+                    if (!hasButtonSprite && HasSourceBackground(spec))
+                    {
+                        buttonImage.color = new Color(1f, 1f, 1f, 0f);
+                    }
+
                     var button = gameObject.AddComponent<Button>();
                     button.targetGraphic = buttonImage;
                     break;
@@ -336,6 +341,31 @@ namespace UnityUIBridge.Editor.Import
             image.color = color;
             image.raycastTarget = true;
             return image;
+        }
+
+        private static Color ResolveButtonFallbackColor(UnityUiBridgeSpec spec, UnityUiBridgeNode node)
+        {
+            return HasSourceBackground(spec) && string.IsNullOrWhiteSpace(node.assetRef)
+                ? new Color(1f, 1f, 1f, 0f)
+                : new Color(0.15f, 0.25f, 0.35f, 0.85f);
+        }
+
+        private static bool HasSourceBackground(UnityUiBridgeSpec spec)
+        {
+            if (spec.assets == null)
+            {
+                return false;
+            }
+
+            foreach (var asset in spec.assets)
+            {
+                if (asset?.type == "background")
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryApplyAssetSprite(UnityUiBridgeSpec spec, UnityUiBridgeNode node, Image image)

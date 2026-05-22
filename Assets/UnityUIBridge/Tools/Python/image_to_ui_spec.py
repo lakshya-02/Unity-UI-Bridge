@@ -11,7 +11,7 @@ import argparse
 import json
 import math
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -51,17 +51,23 @@ def generate_spec(
     asset_output_dir: Path | str | None = None,
     asset_uri_prefix: str | None = None,
     include_background: bool = True,
+    emit_region_sprites: bool = False,
 ) -> dict:
     path = Path(image_path)
     image, width, height = _load_image(path)
     regions = _detect_layout_regions(image, max_regions=max_regions)
     ocr_regions = _detect_text_regions(path) if run_ocr else []
+    reconstruction_regions = (
+        regions
+        if emit_region_sprites
+        else _filter_hotspot_regions(regions, ocr_regions, width, height)
+    )
     assets, asset_refs = _extract_assets(
         path,
         image,
         width,
         height,
-        regions,
+        reconstruction_regions if emit_region_sprites else [],
         asset_output_dir=asset_output_dir,
         asset_uri_prefix=asset_uri_prefix,
         include_background=include_background,
@@ -75,7 +81,7 @@ def generate_spec(
 
     canvas_children.extend(
         _node_from_region(index, region, asset_refs.get(f"node.detected-{index:03d}"))
-        for index, region in enumerate(regions, start=1)
+        for index, region in enumerate(reconstruction_regions, start=1)
     )
 
     text_start = len(canvas_children) + 1
@@ -120,6 +126,7 @@ def generate_spec(
                 "layoutDetector": "opencv-contours",
                 "ocr": "paddleocr-with-easyocr-fallback" if run_ocr else "disabled",
                 "assetExtractor": "pil-region-cropper" if asset_output_dir is not None else "disabled",
+                "compositingMode": "region-sprites" if emit_region_sprites else "background-with-hotspots",
             }
         },
     }
@@ -141,6 +148,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--asset-output-dir", type=Path, default=None, help="Directory for cropped sprite assets.")
     parser.add_argument("--asset-uri-prefix", default=None, help="URI prefix written into asset references.")
     parser.add_argument("--no-background", action="store_true", help="Do not emit a full-image background sprite.")
+    parser.add_argument(
+        "--emit-region-sprites",
+        action="store_true",
+        help="Emit visible cropped sprites for every detected region. Default uses one background plus hotspots.",
+    )
     parser.add_argument("--project-root", type=Path, default=validate_specs.default_project_root())
     args = parser.parse_args(argv)
 
@@ -155,6 +167,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         asset_output_dir=asset_output_dir,
         asset_uri_prefix=asset_uri_prefix,
         include_background=not args.no_background,
+        emit_region_sprites=args.emit_region_sprites,
     )
     write_spec(spec, args.output)
 
@@ -330,6 +343,43 @@ def _detect_layout_regions(image, max_regions: int) -> list[Region]:
     return _dedupe_regions(candidates)[:max_regions]
 
 
+def _filter_hotspot_regions(
+    regions: list[Region],
+    ocr_regions: list[OcrRegion],
+    image_width: int,
+    image_height: int,
+) -> list[Region]:
+    hotspots: list[Region] = []
+    image_area = image_width * image_height
+    for region in regions:
+        button_candidate = region.role == "button" or _is_icon_button_candidate(region, image_area)
+        if not button_candidate:
+            continue
+        if _is_text_dominated(region, ocr_regions):
+            continue
+
+        hotspots.append(replace(region, role="button"))
+
+    return _dedupe_regions(hotspots)
+
+
+def _is_icon_button_candidate(region: Region, image_area: int) -> bool:
+    aspect = region.width / max(region.height, 1)
+    return 0.65 <= aspect <= 1.55 and image_area * 0.002 <= region.area <= image_area * 0.08
+
+
+def _is_text_dominated(region: Region, ocr_regions: list[OcrRegion]) -> bool:
+    if not ocr_regions:
+        return False
+
+    text_area = 0
+    region_box = _region_box(region)
+    for text_region in ocr_regions:
+        text_area += _intersection_area(region_box, _ocr_box(text_region))
+
+    return text_area / max(region.area, 1) > 0.28
+
+
 def _detect_text_regions(image_path: Path) -> list[OcrRegion]:
     paddle_error: Exception | None = None
     try:
@@ -498,6 +548,22 @@ def _intersection_over_union(left: Region, right: Region) -> float:
         return 0.0
     union = left.area + right.area - intersection
     return intersection / union
+
+
+def _intersection_area(left: tuple[int, int, int, int], right: tuple[int, int, int, int]) -> int:
+    x1 = max(left[0], right[0])
+    y1 = max(left[1], right[1])
+    x2 = min(left[2], right[2])
+    y2 = min(left[3], right[3])
+    return max(0, x2 - x1) * max(0, y2 - y1)
+
+
+def _region_box(region: Region) -> tuple[int, int, int, int]:
+    return region.x, region.y, region.x + region.width, region.y + region.height
+
+
+def _ocr_box(region: OcrRegion) -> tuple[int, int, int, int]:
+    return region.x, region.y, region.x + region.width, region.y + region.height
 
 
 def _canvas_node(width: int, height: int) -> dict:

@@ -41,16 +41,47 @@ class ImageToUiSpecTests(unittest.TestCase):
         self.assertEqual({"width": 640, "height": 360}, spec["document"]["referenceResolution"])
         self.assertEqual("canvas", spec["nodes"][0]["role"])
         self.assertGreaterEqual(len(spec["nodes"][0]["children"]), 2)
-        self.assertGreaterEqual(len(spec["assets"]), 2)
+        self.assertEqual(1, len(spec["assets"]))
 
         asset_ids = {asset["id"] for asset in spec["assets"]}
-        visual_nodes = [node for node in spec["nodes"][0]["children"] if node["role"] != "text"]
+        background_nodes = [node for node in spec["nodes"][0]["children"] if node["id"] == "node.background"]
+        overlay_nodes = [node for node in spec["nodes"][0]["children"] if node["id"] != "node.background"]
 
         self.assertTrue(asset_files_exist)
-        self.assertTrue(all(node.get("assetRef") in asset_ids for node in visual_nodes))
+        self.assertEqual(["asset.background"], list(asset_ids))
+        self.assertEqual("asset.background", background_nodes[0].get("assetRef"))
+        self.assertTrue(all("assetRef" not in node for node in overlay_nodes))
         self.assertTrue(
             any(asset["type"] == "background" and asset["sourceNodeId"] == "node.background" for asset in spec["assets"])
         )
+        self.assertTrue(any(node["role"] == "button" for node in overlay_nodes))
+
+    def test_region_sprite_mode_emits_cropped_assets_for_detected_regions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            image_path = temp_path / "synthetic-ui.png"
+            asset_output_dir = temp_path / "sprites"
+            _write_synthetic_ui_png(image_path)
+
+            spec = image_to_ui_spec.generate_spec(
+                image_path=image_path,
+                run_ocr=False,
+                asset_output_dir=asset_output_dir,
+                asset_uri_prefix="Assets/UnityUIBridge/Generated/Sprites/synthetic-ui",
+                emit_region_sprites=True,
+            )
+
+            asset_files_exist = all((asset_output_dir / Path(asset["uri"]).name).exists() for asset in spec["assets"])
+
+        region_assets = [asset for asset in spec["assets"] if asset["id"].startswith("asset.detected-")]
+        visual_nodes = [
+            node for node in spec["nodes"][0]["children"]
+            if node["id"].startswith("node.detected-") and node["role"] != "text"
+        ]
+
+        self.assertTrue(asset_files_exist)
+        self.assertGreaterEqual(len(region_assets), 1)
+        self.assertTrue(all("assetRef" in node for node in visual_nodes))
 
     def test_cli_writes_valid_spec_file(self):
         project_root = Path(__file__).resolve().parents[5]
@@ -79,7 +110,7 @@ class ImageToUiSpecTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual("CLI Synthetic", payload["document"]["title"])
-        self.assertGreaterEqual(len(generated_assets), 2)
+        self.assertEqual(["asset.background"], [asset["id"] for asset in generated_assets])
 
 
 def _write_synthetic_ui_png(path):

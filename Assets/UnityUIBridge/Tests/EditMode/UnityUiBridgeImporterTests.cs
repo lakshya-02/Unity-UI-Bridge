@@ -202,6 +202,75 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
+        public void ImporterUsesTransparentHotspotsWhenBackgroundCoversVisuals()
+        {
+            var assetPath = CreateTemporarySpriteAsset();
+            var json = @"{
+  ""schemaVersion"": ""1.0.0"",
+  ""document"": {
+    ""id"": ""doc.hotspot-import"",
+    ""title"": ""Hotspot Import"",
+    ""source"": { ""type"": ""screenshot"", ""uri"": ""hotspot-import.png"" },
+    ""referenceResolution"": { ""width"": 64, ""height"": 64 },
+    ""coordinateSystem"": { ""origin"": ""top-left"", ""unit"": ""pixel"", ""yAxis"": ""down"" },
+    ""target"": { ""engine"": ""Unity"", ""uiSystem"": ""uGUI"", ""canvasMode"": ""screen-space-overlay"" }
+  },
+  ""assets"": [
+    {
+      ""id"": ""asset.background"",
+      ""type"": ""background"",
+      ""uri"": """ + assetPath.Replace("\\", "/") + @""",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""sourceNodeId"": ""node.background""
+    }
+  ],
+  ""styles"": [],
+  ""nodes"": [
+    {
+      ""id"": ""node.canvas"",
+      ""role"": ""canvas"",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""children"": [
+        {
+          ""id"": ""node.background"",
+          ""role"": ""image"",
+          ""name"": ""Source Background"",
+          ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+          ""assetRef"": ""asset.background""
+        },
+        {
+          ""id"": ""node.play-button"",
+          ""role"": ""button"",
+          ""name"": ""Play Hotspot"",
+          ""rect"": { ""x"": 20, ""y"": 20, ""width"": 24, ""height"": 24 },
+          ""interactionRef"": ""interaction.play""
+        }
+      ]
+    }
+  ],
+  ""interactions"": [
+    { ""id"": ""interaction.play"", ""nodeId"": ""node.play-button"", ""type"": ""button"" }
+  ],
+  ""extensions"": {}
+}";
+            var spec = UnityUiBridgeSpecParser.FromJson(json);
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Hotspot Test",
+                CreateEventSystem = false
+            });
+
+            var background = GameObject.Find("Source Background");
+            var hotspot = GameObject.Find("Play Hotspot");
+
+            Assert.That(background.GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(hotspot.GetComponent<Button>(), Is.Not.Null);
+            Assert.That(hotspot.GetComponent<Image>().sprite, Is.Null);
+            Assert.That(hotspot.GetComponent<Image>().color.a, Is.EqualTo(0f).Within(0.001f));
+        }
+
+        [Test]
         public void ImporterCreatesDebugOverlayInsideSourceFrame()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));

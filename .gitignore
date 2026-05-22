@@ -33,6 +33,7 @@ sysinfo.txt
 
 # Python generated files
 __pycache__/
+__pycache__.meta
 *.py[cod]
 *.pyo
 .pytest_cache/

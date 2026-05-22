@@ -55,6 +55,7 @@ The importer currently creates:
 - Image components for panels, icons, image nodes, and unknown nodes
 - Sprite assignment for generated `assetRef` PNG files
 - Button components for `button` nodes
+- Transparent button hotspots when a generated full-image background is present
 - Text components for `text` nodes
 - InputField, Toggle, and Slider components for matching roles
 - Optional vertical or horizontal layout groups when explicitly enabled in the importer window
@@ -68,6 +69,7 @@ If placement looks wrong, delete the imported root, select the Canvas you actual
 ## Current Limitations
 
 - Sprite assignment expects assets to live inside the Unity project, usually under `Assets/UnityUIBridge/Generated/Sprites/`.
+- Automatic button detection is heuristic and should be reviewed in the Scene hierarchy.
 - Style color dictionaries are validated by JSON Schema but not fully mapped into Unity components yet.
 - Runtime import is not implemented yet; this is editor-only.
 - Vision-language hierarchy reasoning and advanced segmentation adapters are not implemented yet.
