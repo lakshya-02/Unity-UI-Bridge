@@ -245,6 +245,9 @@ namespace UnityUIBridge.Editor.Import
             }
         }
 
+        private static float _currentOverlayDepth = 0f;
+        private static readonly float _overlayDepthStep = 0.01f;
+
         private static void CreateDebugOverlay(
             UnityUiBridgeNode[] nodes,
             Transform sourceFrame,
@@ -261,16 +264,35 @@ namespace UnityUIBridge.Editor.Import
             overlayRect.anchoredPosition = Vector2.zero;
             overlayRect.sizeDelta = new Vector2(sourceCanvasRect.width, sourceCanvasRect.height);
 
+            _currentOverlayDepth = 0f;
+            var nodeDepthMap = new System.Collections.Generic.Dictionary<string, float>();
+            CalculateNodeDepths(nodes, 0, nodeDepthMap);
+
             foreach (var node in nodes)
             {
-                CreateDebugNode(node, overlay.transform, sourceCanvasRect);
+                CreateDebugNode(node, overlay.transform, sourceCanvasRect, nodeDepthMap);
+            }
+        }
+
+        private static void CalculateNodeDepths(UnityUiBridgeNode[] nodes, int depth, System.Collections.Generic.Dictionary<string, float> depthMap)
+        {
+            if (nodes == null) return;
+            foreach (var node in nodes)
+            {
+                if (node == null) continue;
+                depthMap[node.id] = depth * _overlayDepthStep;
+                if (node.children != null)
+                {
+                    CalculateNodeDepths(node.children, depth + 1, depthMap);
+                }
             }
         }
 
         private static void CreateDebugNode(
             UnityUiBridgeNode node,
             Transform overlay,
-            UnityUiBridgeRect sourceCanvasRect)
+            UnityUiBridgeRect sourceCanvasRect,
+            System.Collections.Generic.Dictionary<string, float> nodeDepthMap)
         {
             if (node == null)
             {
@@ -281,14 +303,23 @@ namespace UnityUIBridge.Editor.Import
             Undo.RegisterCreatedObjectUndo(gameObject, "Create UI Bridge Debug Node");
             gameObject.transform.SetParent(overlay, false);
 
+            var depth = nodeDepthMap.GetValueOrDefault(node.id, 0f);
+            gameObject.transform.SetAsLastSibling();
+
             var rectTransform = gameObject.AddComponent<RectTransform>();
             ApplyRectTransform(rectTransform, node, sourceCanvasRect);
 
             var image = gameObject.AddComponent<Image>();
-            image.color = DebugColorForRole(node.role);
+            var color = DebugColorForRole(node.role);
+            color.a = Mathf.Lerp(0.35f, 0.65f, depth);
+            image.color = color;
             image.raycastTarget = false;
 
-            CreateDebugLabel(node, gameObject.transform);
+            var outline = gameObject.AddComponent<Outline>();
+            outline.effectColor = DebugOutlineColorForRole(node.role);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            CreateDebugLabel(node, gameObject.transform, depth);
 
             if (node.children == null)
             {
@@ -297,11 +328,11 @@ namespace UnityUIBridge.Editor.Import
 
             foreach (var child in node.children)
             {
-                CreateDebugNode(child, overlay, sourceCanvasRect);
+                CreateDebugNode(child, overlay, sourceCanvasRect, nodeDepthMap);
             }
         }
 
-        private static void CreateDebugLabel(UnityUiBridgeNode node, Transform parent)
+        private static void CreateDebugLabel(UnityUiBridgeNode node, Transform parent, float depth)
         {
             var label = new GameObject("Label");
             Undo.RegisterCreatedObjectUndo(label, "Create UI Bridge Debug Label");
@@ -317,22 +348,41 @@ namespace UnityUIBridge.Editor.Import
             var text = label.AddComponent<Text>();
             text.text = $"{node.id} ({node.role})";
             text.font = ResolveBuiltInFont();
-            text.fontSize = 14;
+            text.fontSize = Mathf.RoundToInt(Mathf.Lerp(12f, 16f, 1f - depth));
             text.alignment = TextAnchor.MiddleLeft;
             text.color = Color.white;
             text.raycastTarget = false;
+
+            var shadow = label.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            shadow.effectDistance = new Vector2(1f, -1f);
         }
 
         private static Color DebugColorForRole(string role)
         {
             return role switch
             {
-                "button" => new Color(0.1f, 0.65f, 1f, 0.22f),
-                "text" => new Color(0.15f, 1f, 0.35f, 0.22f),
-                "panel" => new Color(1f, 0.7f, 0.1f, 0.18f),
-                "icon" => new Color(1f, 0.2f, 0.8f, 0.22f),
-                "input" => new Color(0.55f, 0.35f, 1f, 0.22f),
-                _ => new Color(1f, 1f, 1f, 0.16f)
+                "button" => new Color(0.1f, 0.65f, 1f, 1f),
+                "text" => new Color(0.15f, 1f, 0.35f, 1f),
+                "panel" => new Color(1f, 0.7f, 0.1f, 1f),
+                "icon" => new Color(1f, 0.2f, 0.8f, 1f),
+                "input" => new Color(0.55f, 0.35f, 1f, 1f),
+                "image" => new Color(0.8f, 0.8f, 0.8f, 1f),
+                _ => new Color(1f, 1f, 1f, 1f)
+            };
+        }
+
+        private static Color DebugOutlineColorForRole(string role)
+        {
+            return role switch
+            {
+                "button" => new Color(0f, 0.4f, 0.8f, 1f),
+                "text" => new Color(0f, 0.6f, 0.2f, 1f),
+                "panel" => new Color(0.8f, 0.5f, 0f, 1f),
+                "icon" => new Color(0.8f, 0f, 0.6f, 1f),
+                "input" => new Color(0.4f, 0.2f, 0.8f, 1f),
+                "image" => new Color(0.5f, 0.5f, 0.5f, 1f),
+                _ => new Color(0.8f, 0.8f, 0.8f, 1f)
             };
         }
 

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'feat\\(eval-shadow\\): add debug overlay quality improvements and evaluation scripts *)"
+    ]
+  }
+}

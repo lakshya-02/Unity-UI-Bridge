@@ -1,78 +1,24 @@
-# Codex Agent Prompt
+Task: Verify full-screen image reconstruction and prepare detector improvements
 
-You are the implementation agent for **Unity UI Bridge**, an open-source local-first Unity tool that reconstructs modular uGUI layouts from reference UI images.
+Goal:
+Make generated UIs import as one full-screen background image on the selected Canvas, with transparent Unity Button hotspots and editable OCR text layered on top.
 
-## Mission
+Files likely involved:
+- Assets/UnityUIBridge/Tools/Python/image_to_ui_spec.py
+- Assets/UnityUIBridge/Editor/Import/UnityUiBridgeImporter.cs
+- Assets/UnityUIBridge/Editor/UnityUiBridgeImporterWindow.cs
+- Assets/UnityUIBridge/Tests/EditMode/UnityUiBridgeImporterTests.cs
+- Assets/UnityUIBridge/Docs/image-to-ui-pipeline.md
 
-Move the project from prototype to a reliable end-to-end workflow:
+Acceptance criteria:
+- Generated spec contains one background asset by default.
+- Region sprite crops are only emitted with --emit-region-sprites.
+- Import root stretches inside the selected Canvas.
+- Source Frame fills the target Canvas by default, with a letterbox option still available.
+- Unity buttons are transparent hotspots when a background is present.
+- Python validation and unit tests pass.
+- dotnet build passes.
+- Generated files and model caches are not committed.
 
-```text
-image -> local Python image-to-spec generator -> validated v1 JSON spec -> Unity uGUI importer -> aligned Canvas hierarchy
-```
-
-Prioritize fixes that make the pipeline usable inside Unity before adding larger AI models.
-
-## Current Project State
-
-- Repo root: `C:\Users\Lakshya\Unity UI Bridge`
-- Unity version: `6000.0.70f1`
-- Main branch: `master`
-- Remote: `https://github.com/lakshya-02/Unity-UI-Bridge`
-- Schema: `Assets/UnityUIBridge/Specs/v1/ui-bridge.schema.json`
-- Python generator: `Assets/UnityUIBridge/Tools/Python/image_to_ui_spec.py`
-- Unity importer: `Assets/UnityUIBridge/Editor/Import/UnityUiBridgeImporter.cs`
-- Editor window: `Assets/UnityUIBridge/Editor/UnityUiBridgeImporterWindow.cs`
-
-## Responsibilities
-
-1. Fix Unity importer reliability first.
-2. Keep the JSON schema and Python generator compatible.
-3. Add focused tests before behavior changes.
-4. Commit after each meaningful milestone.
-5. Push successful milestones to GitHub.
-
-## Immediate Priorities
-
-1. Make imported UI align correctly inside the selected scene Canvas.
-2. Add a visual debug mode that draws source image bounds and detected rectangles.
-3. Improve RectTransform anchoring/pivot behavior for generated nodes.
-4. Load generated specs from `Assets/UnityUIBridge/Generated/Specs/`.
-5. Keep improving sprite/asset extraction for real screenshots.
-6. Add prompt-to-UI concept generation only as an optional adapter after approval.
-
-## Guardrails
-
-- Do not install large models without explicit approval.
-- Do not add NVIDIA NIM, Hugging Face, local diffusion, or other image-generation backends without explicit approval.
-- Keep any online trial backend optional and API-key gated.
-- Do not commit model weights, generated outputs, `Library/`, `Temp/`, `Logs/`, or IDE project files.
-- Do not add paid APIs or proprietary service dependencies.
-- Keep `Apply Layout Groups` off by default for reconstruction imports.
-- Prefer one clear change per commit.
-
-## Verification Commands
-
-Run these before claiming work is complete:
-
-```powershell
-python Assets\UnityUIBridge\Tools\Python\validate_specs.py --all
-python -m unittest Assets.UnityUIBridge.Tools.Python.Tests.test_image_to_ui_spec Assets.UnityUIBridge.Tools.Python.Tests.test_validate_specs
-dotnet build "Unity UI Bridge.slnx"
-git status --short
-```
-
-If Unity is closed, also run EditMode tests in batchmode:
-
-```powershell
-& "C:\Program Files\Unity\Hub\Editor\6000.0.70f1\Editor\Unity.exe" -batchmode -quit -projectPath "C:\Users\Lakshya\Unity UI Bridge" -runTests -testPlatform EditMode -testResults "Logs\UnityUIBridge.EditModeResults.xml" -logFile "Logs\UnityUIBridge.EditMode.log"
-```
-
-## Output Style
-
-Report:
-
-- What changed
-- Which files changed
-- Verification results
-- Commit hash
-- What to test next in Unity
+Next research after this:
+Evaluate OpenCV adaptive thresholding, multi-scale contour detection, OCR confidence filtering, and optional Tesseract/scikit-image/ImageMagick adapters using 3-4 user-provided test images.
