@@ -1,9 +1,11 @@
 using System.IO;
+using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityUIBridge.Runtime.Spec;
+using Object = UnityEngine.Object;
 
 namespace UnityUIBridge.Editor.Import
 {
@@ -73,12 +75,21 @@ namespace UnityUIBridge.Editor.Import
             var selectedCanvas = Selection.activeGameObject != null
                 ? Selection.activeGameObject.GetComponentInParent<Canvas>()
                 : null;
-            if (selectedCanvas != null)
+            if (selectedCanvas != null && !IsUnityUiBridgeImportCanvas(selectedCanvas))
             {
                 return selectedCanvas;
             }
 
-            return Object.FindFirstObjectByType<Canvas>();
+            var canvases = Object.FindObjectsByType<Canvas>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            foreach (var canvas in canvases)
+            {
+                if (!IsUnityUiBridgeImportCanvas(canvas))
+                {
+                    return canvas;
+                }
+            }
+
+            return null;
         }
 
         private static GameObject CreateCanvas(string rootName, Vector2 referenceResolution, string canvasMode)
@@ -611,15 +622,66 @@ namespace UnityUIBridge.Editor.Import
 
         private static void EnsureEventSystem()
         {
-            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            var existing = Object.FindFirstObjectByType<EventSystem>();
+            if (existing != null)
             {
+                EnsureCompatibleInputModule(existing.gameObject);
                 return;
             }
 
             var eventSystem = new GameObject("EventSystem");
             eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<StandaloneInputModule>();
+            EnsureCompatibleInputModule(eventSystem);
             Undo.RegisterCreatedObjectUndo(eventSystem, "Create EventSystem");
+        }
+
+        private static void EnsureCompatibleInputModule(GameObject eventSystem)
+        {
+            var inputSystemUiModuleType = Type.GetType(
+                "UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+            if (inputSystemUiModuleType != null)
+            {
+                var standaloneInputModule = eventSystem.GetComponent<StandaloneInputModule>();
+                if (standaloneInputModule != null)
+                {
+                    Object.DestroyImmediate(standaloneInputModule);
+                }
+
+                if (eventSystem.GetComponent(inputSystemUiModuleType) == null)
+                {
+                    eventSystem.AddComponent(inputSystemUiModuleType);
+                }
+
+                return;
+            }
+
+            if (eventSystem.GetComponent<StandaloneInputModule>() == null)
+            {
+                eventSystem.AddComponent<StandaloneInputModule>();
+            }
+        }
+
+        private static bool IsUnityUiBridgeImportCanvas(Canvas canvas)
+        {
+            if (canvas == null)
+            {
+                return false;
+            }
+
+            var current = canvas.transform;
+            while (current != null)
+            {
+                var objectName = current.name;
+                if (objectName.StartsWith("Unity UI Bridge", StringComparison.OrdinalIgnoreCase)
+                    || objectName.StartsWith("Imported ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                current = current.parent;
+            }
+
+            return false;
         }
 
         private readonly struct UnityUiBridgeSourceFrameLayout

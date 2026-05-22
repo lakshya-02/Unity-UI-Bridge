@@ -124,6 +124,7 @@ namespace UnityUIBridge.Editor
             bool createDebugOverlay = false)
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(specPath);
+            targetCanvas ??= UnityUiBridgeImporter.FindSceneCanvasForImport();
             UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
             {
                 RootName = rootName,
@@ -172,6 +173,7 @@ namespace UnityUIBridge.Editor
 
             if (_importAfterGenerate)
             {
+                _targetCanvas ??= UnityUiBridgeImporter.FindSceneCanvasForImport();
                 ImportSpec(
                     _specPath,
                     _rootName,

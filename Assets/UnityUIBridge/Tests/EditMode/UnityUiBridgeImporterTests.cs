@@ -19,6 +19,14 @@ namespace UnityUIBridge.Tests.EditMode
             {
                 Object.DestroyImmediate(_root);
             }
+
+            var eventSystem = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (eventSystem != null)
+            {
+                Object.DestroyImmediate(eventSystem.gameObject);
+            }
+
+            Selection.activeGameObject = null;
         }
 
         [Test]
@@ -192,6 +200,38 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(rectTransform.anchorMax, Is.EqualTo(Vector2.one));
             Assert.That(rectTransform.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(rectTransform.offsetMax, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void FindSceneCanvasForImportPrefersUserCanvasOverPreviousImports()
+        {
+            _root = new GameObject("Canvas Test Root");
+            var importCanvasObject = new GameObject("Unity UI Bridge Import", typeof(RectTransform), typeof(Canvas));
+            var mainCanvasObject = new GameObject("Main Canvas", typeof(RectTransform), typeof(Canvas));
+            importCanvasObject.transform.SetParent(_root.transform);
+            mainCanvasObject.transform.SetParent(_root.transform);
+            Selection.activeGameObject = null;
+
+            var canvas = UnityUiBridgeImporter.FindSceneCanvasForImport();
+
+            Assert.That(canvas, Is.EqualTo(mainCanvasObject.GetComponent<Canvas>()));
+        }
+
+        [Test]
+        public void ImporterUsesInputSystemUiModuleWhenPackageIsAvailable()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported EventSystem Test",
+                CreateEventSystem = true
+            });
+
+            var eventSystem = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>();
+            Assert.That(eventSystem, Is.Not.Null);
+            Assert.That(eventSystem.GetComponent<UnityEngine.EventSystems.StandaloneInputModule>(), Is.Null);
+            Assert.That(eventSystem.GetComponent("InputSystemUIInputModule"), Is.Not.Null);
         }
 
         [Test]
