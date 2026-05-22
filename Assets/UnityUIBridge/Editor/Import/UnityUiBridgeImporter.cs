@@ -19,6 +19,7 @@ namespace UnityUIBridge.Editor.Import
         public bool PreserveAspectRatio = true;
         public bool FillTargetCanvas = true;
         public bool CreateDebugOverlay = false;
+        public bool ReplaceExistingImports = true;
     }
 
     public static class UnityUiBridgeImporter
@@ -32,6 +33,11 @@ namespace UnityUIBridge.Editor.Import
 
             spec.Normalize();
             options ??= new UnityUiBridgeImportOptions();
+            options.TargetCanvas = ResolveImportTargetCanvas(options.TargetCanvas);
+            if (options.ReplaceExistingImports)
+            {
+                DeleteExistingImportRoots(options.RootName, options.TargetCanvas);
+            }
 
             var canvasNode = spec.nodes.Length > 0 ? spec.nodes[0] : null;
             var referenceResolution = ResolveReferenceResolution(spec, canvasNode);
@@ -92,6 +98,16 @@ namespace UnityUIBridge.Editor.Import
             return null;
         }
 
+        public static Canvas ResolveImportTargetCanvas(Canvas requestedCanvas)
+        {
+            if (requestedCanvas != null && !IsUnityUiBridgeImportCanvas(requestedCanvas))
+            {
+                return requestedCanvas;
+            }
+
+            return FindSceneCanvasForImport();
+        }
+
         private static GameObject CreateCanvas(string rootName, Vector2 referenceResolution, string canvasMode)
         {
             var root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName);
@@ -109,6 +125,33 @@ namespace UnityUIBridge.Editor.Import
             root.AddComponent<GraphicRaycaster>();
             Undo.RegisterCreatedObjectUndo(root, "Import Unity UI Bridge Spec");
             return root;
+        }
+
+        private static void DeleteExistingImportRoots(string rootName, Canvas targetCanvas)
+        {
+            var normalizedRootName = string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName;
+            var transforms = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var transform in transforms)
+            {
+                var gameObject = transform.gameObject;
+                if (targetCanvas != null && gameObject == targetCanvas.gameObject)
+                {
+                    continue;
+                }
+
+                if (!IsImportRootName(gameObject.name, normalizedRootName))
+                {
+                    continue;
+                }
+
+                Undo.DestroyObjectImmediate(gameObject);
+            }
+        }
+
+        private static bool IsImportRootName(string objectName, string rootName)
+        {
+            return string.Equals(objectName, rootName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(objectName, "Unity UI Bridge Import", StringComparison.OrdinalIgnoreCase);
         }
 
         private static Transform CreateSourceFrame(

@@ -18,6 +18,7 @@ namespace UnityUIBridge.Editor
         private bool _preserveAspectRatio = true;
         private bool _fillTargetCanvas = true;
         private bool _createDebugOverlay = false;
+        private bool _replaceExistingImports = true;
         private string _imagePath = "Assets/UnityUIBridge/Generated/SmokeTests/synthetic-ui.png";
         private string _generatedSpecPath = "Assets/UnityUIBridge/Generated/Specs/generated-ui.json";
         private bool _runOcr = true;
@@ -53,6 +54,7 @@ namespace UnityUIBridge.Editor
             _fitToTargetCanvas = EditorGUILayout.Toggle("Fit To Target Canvas", _fitToTargetCanvas);
             _preserveAspectRatio = EditorGUILayout.Toggle("Preserve Aspect Ratio", _preserveAspectRatio);
             _fillTargetCanvas = EditorGUILayout.Toggle("Fill Target Canvas", _fillTargetCanvas);
+            _replaceExistingImports = EditorGUILayout.Toggle("Replace Existing Imports", _replaceExistingImports);
             _applyLayoutGroups = EditorGUILayout.Toggle("Apply Layout Groups", _applyLayoutGroups);
             _createDebugOverlay = EditorGUILayout.Toggle("Create Debug Overlay", _createDebugOverlay);
 
@@ -83,6 +85,7 @@ namespace UnityUIBridge.Editor
                         _fitToTargetCanvas,
                         _preserveAspectRatio,
                         _fillTargetCanvas,
+                        _replaceExistingImports,
                         _createDebugOverlay);
             }
         }
@@ -121,10 +124,11 @@ namespace UnityUIBridge.Editor
             bool fitToTargetCanvas = true,
             bool preserveAspectRatio = true,
             bool fillTargetCanvas = true,
+            bool replaceExistingImports = true,
             bool createDebugOverlay = false)
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(specPath);
-            targetCanvas ??= UnityUiBridgeImporter.FindSceneCanvasForImport();
+            targetCanvas = UnityUiBridgeImporter.ResolveImportTargetCanvas(targetCanvas);
             UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
             {
                 RootName = rootName,
@@ -134,6 +138,7 @@ namespace UnityUIBridge.Editor
                 FitToTargetCanvas = fitToTargetCanvas,
                 PreserveAspectRatio = preserveAspectRatio,
                 FillTargetCanvas = fillTargetCanvas,
+                ReplaceExistingImports = replaceExistingImports,
                 CreateDebugOverlay = createDebugOverlay
             });
         }
@@ -173,7 +178,7 @@ namespace UnityUIBridge.Editor
 
             if (_importAfterGenerate)
             {
-                _targetCanvas ??= UnityUiBridgeImporter.FindSceneCanvasForImport();
+                _targetCanvas = UnityUiBridgeImporter.ResolveImportTargetCanvas(_targetCanvas);
                 ImportSpec(
                     _specPath,
                     _rootName,
@@ -183,6 +188,7 @@ namespace UnityUIBridge.Editor
                     _fitToTargetCanvas,
                     _preserveAspectRatio,
                     _fillTargetCanvas,
+                    _replaceExistingImports,
                     _createDebugOverlay);
             }
         }

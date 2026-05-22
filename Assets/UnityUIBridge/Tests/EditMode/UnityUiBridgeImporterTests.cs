@@ -203,6 +203,31 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
+        public void ImporterIgnoresStaleGeneratedTargetCanvas()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+            var staleImportCanvasObject = new GameObject("Unity UI Bridge Import", typeof(RectTransform), typeof(Canvas));
+            var mainCanvasObject = new GameObject("Main Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            _root = mainCanvasObject;
+
+            staleImportCanvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(100f, 100f);
+            mainCanvasObject.GetComponent<RectTransform>().sizeDelta = new Vector2(1280f, 720f);
+            mainCanvasObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1280f, 720f);
+
+            var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Stale Target Test",
+                CreateEventSystem = false,
+                TargetCanvas = staleImportCanvasObject.GetComponent<Canvas>(),
+                FitToTargetCanvas = true
+            });
+
+            Assert.That(importedRoot.transform.parent, Is.EqualTo(mainCanvasObject.transform));
+            AssertRectSize(importedRoot, 1280f, 720f);
+            Object.DestroyImmediate(staleImportCanvasObject);
+        }
+
+        [Test]
         public void FindSceneCanvasForImportPrefersUserCanvasOverPreviousImports()
         {
             _root = new GameObject("Canvas Test Root");
