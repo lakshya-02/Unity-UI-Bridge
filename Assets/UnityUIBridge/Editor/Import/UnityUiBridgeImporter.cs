@@ -177,9 +177,9 @@ namespace UnityUIBridge.Editor.Import
             frame.transform.SetParent(parent, false);
 
             var rectTransform = frame.AddComponent<RectTransform>();
-            rectTransform.anchorMin = new Vector2(0f, 1f);
-            rectTransform.anchorMax = new Vector2(0f, 1f);
-            rectTransform.pivot = new Vector2(0f, 1f);
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.sizeDelta = sourceSize;
 
             var layout = UnityUiBridgeSourceFrameLayout.Create(
@@ -187,7 +187,7 @@ namespace UnityUIBridge.Editor.Import
                 options.FitToTargetCanvas ? targetResolution : sourceSize,
                 options.PreserveAspectRatio,
                 options.FillTargetCanvas);
-            rectTransform.anchoredPosition = new Vector2(layout.OffsetX, -layout.OffsetY);
+            rectTransform.anchoredPosition = Vector2.zero;
             frame.transform.localScale = new Vector3(layout.ScaleX, layout.ScaleY, 1f);
             return frame.transform;
         }

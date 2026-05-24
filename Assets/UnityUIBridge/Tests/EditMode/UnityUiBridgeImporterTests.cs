@@ -119,6 +119,7 @@ namespace UnityUIBridge.Tests.EditMode
             AssertSize(sourceFrame.gameObject, 1920f, 1080f);
             AssertScale(sourceFrame.gameObject, 0.666667f, 0.666667f);
             AssertPosition(sourceFrame.gameObject, 0f, 0f);
+            AssertCentered(sourceFrame.gameObject);
             Assert.That(menuPanel.transform.parent, Is.EqualTo(sourceFrame));
             AssertPosition(menuPanel, 560f, -180f);
             AssertSize(menuPanel, 800f, 720f);
@@ -147,7 +148,8 @@ namespace UnityUIBridge.Tests.EditMode
             var sourceFrame = importedRoot.transform.Find("Source Frame");
             Assert.That(sourceFrame, Is.Not.Null);
             AssertScale(sourceFrame.gameObject, 0.925926f, 0.925926f);
-            AssertPosition(sourceFrame.gameObject, -388.8889f, 0f);
+            AssertPosition(sourceFrame.gameObject, 0f, 0f);
+            AssertCentered(sourceFrame.gameObject);
         }
 
         [Test]
@@ -174,7 +176,8 @@ namespace UnityUIBridge.Tests.EditMode
             var sourceFrame = importedRoot.transform.Find("Source Frame");
             Assert.That(sourceFrame, Is.Not.Null);
             AssertScale(sourceFrame.gameObject, 0.520833f, 0.520833f);
-            AssertPosition(sourceFrame.gameObject, 0f, -218.75f);
+            AssertPosition(sourceFrame.gameObject, 0f, 0f);
+            AssertCentered(sourceFrame.gameObject);
         }
 
         [Test]
@@ -201,6 +204,25 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(rectTransform.anchorMax, Is.EqualTo(Vector2.one));
             Assert.That(rectTransform.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(rectTransform.offsetMax, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void ImporterCentersSourceFrameInsideCreatedCanvas()
+        {
+            var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Centered Canvas Test",
+                CreateEventSystem = false,
+                TargetCanvas = null,
+                FitToTargetCanvas = true
+            });
+
+            var sourceFrame = _root.transform.Find("Source Frame");
+            Assert.That(sourceFrame, Is.Not.Null);
+            AssertCentered(sourceFrame.gameObject);
+            AssertPosition(sourceFrame.gameObject, 0f, 0f);
         }
 
         [Test]
@@ -490,6 +512,14 @@ namespace UnityUIBridge.Tests.EditMode
         {
             Assert.That(gameObject.transform.localScale.x, Is.EqualTo(expectedX).Within(0.001f));
             Assert.That(gameObject.transform.localScale.y, Is.EqualTo(expectedY).Within(0.001f));
+        }
+
+        private static void AssertCentered(GameObject gameObject)
+        {
+            var rectTransform = gameObject.GetComponent<RectTransform>();
+            Assert.That(rectTransform.anchorMin, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.anchorMax, Is.EqualTo(new Vector2(0.5f, 0.5f)));
+            Assert.That(rectTransform.pivot, Is.EqualTo(new Vector2(0.5f, 0.5f)));
         }
     }
 }
