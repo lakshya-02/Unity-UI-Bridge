@@ -57,6 +57,7 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(_root.GetComponent<Canvas>(), Is.Not.Null);
             Assert.That(_root.GetComponent<CanvasScaler>(), Is.Not.Null);
             Assert.That(_root.GetComponent<GraphicRaycaster>(), Is.Not.Null);
+            Assert.That(_root.transform.localScale, Is.EqualTo(Vector3.one));
 
             var playButton = GameObject.Find("Play Button");
             Assert.That(playButton, Is.Not.Null);
@@ -243,6 +244,22 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
+        public void ClearGeneratedImportsRemovesStaleImportRootsOnly()
+        {
+            _root = new GameObject("Canvas Test Root");
+            var staleImportCanvasObject = new GameObject("Unity UI Bridge Import", typeof(RectTransform), typeof(Canvas));
+            var mainCanvasObject = new GameObject("Main Canvas", typeof(RectTransform), typeof(Canvas));
+            mainCanvasObject.transform.SetParent(_root.transform);
+            staleImportCanvasObject.transform.localScale = Vector3.zero;
+
+            var deletedCount = UnityUiBridgeImporter.ClearGeneratedImports();
+
+            Assert.That(deletedCount, Is.EqualTo(1));
+            Assert.That(staleImportCanvasObject == null, Is.True);
+            Assert.That(mainCanvasObject, Is.Not.Null);
+        }
+
+        [Test]
         public void ImporterUsesInputSystemUiModuleWhenPackageIsAvailable()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
@@ -381,8 +398,13 @@ namespace UnityUIBridge.Tests.EditMode
 
             var background = GameObject.Find("Source Background");
             var hotspot = GameObject.Find("Play Hotspot");
+            var backgroundRect = background.GetComponent<RectTransform>();
 
             Assert.That(background.GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(backgroundRect.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(backgroundRect.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(backgroundRect.offsetMin, Is.EqualTo(Vector2.zero));
+            Assert.That(backgroundRect.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(hotspot.GetComponent<Button>(), Is.Not.Null);
             Assert.That(hotspot.GetComponent<Image>().sprite, Is.Null);
             Assert.That(hotspot.GetComponent<Image>().color.a, Is.EqualTo(0f).Within(0.001f));

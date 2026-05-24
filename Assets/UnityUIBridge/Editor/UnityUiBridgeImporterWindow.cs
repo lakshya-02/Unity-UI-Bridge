@@ -44,6 +44,13 @@ namespace UnityUIBridge.Editor
                 true);
         }
 
+        [MenuItem("Tools/Unity UI Bridge/Clear Generated Imports")]
+        public static void ClearGeneratedImportsMenu()
+        {
+            var deletedCount = UnityUiBridgeImporter.ClearGeneratedImports();
+            UnityEngine.Debug.Log($"Removed {deletedCount} generated Unity UI Bridge import root(s).");
+        }
+
         private void OnGUI()
         {
             EditorGUILayout.LabelField("Spec Import", EditorStyles.boldLabel);
@@ -87,8 +94,13 @@ namespace UnityUIBridge.Editor
                         _fillTargetCanvas,
                         _replaceExistingImports,
                         _createDebugOverlay);
+                }
             }
-        }
+
+            if (GUILayout.Button("Clear Generated Imports"))
+            {
+                ClearGeneratedImportsMenu();
+            }
 
             EditorGUILayout.Space(12);
             EditorGUILayout.LabelField("Image To Spec", EditorStyles.boldLabel);

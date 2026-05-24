@@ -318,29 +318,57 @@ def _detect_layout_regions(image, max_regions: int) -> list[Region]:
     min_area = max(600, int(width * height * 0.002))
     max_area = int(width * height * 0.92)
 
+    # Pre-compute gray once and adaptive Canny baseline from median
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 40, 120)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=2)
-    contours, _ = cv2.findContours(closed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    median = cv2.medianBlur(gray, 5).mean()
+    lower = int(max(0, 0.33 * median))
+    upper = int(min(255, 1.33 * median))
+
+    # Try multiple scales and both RETR_EXTERNAL / RETR_TREE for better coverage
+    all_contours = []
+    scales = [(5, 5), (7, 7), (3, 3)]
+    retrieval_modes = [cv2.RETR_EXTERNAL, cv2.RETR_TREE]
+
+    for ksize in scales:
+        blurred = cv2.GaussianBlur(gray, ksize, 0)
+        edges = cv2.Canny(blurred, lower, upper)
+
+        # Opening (erode then dilate) to remove salt-and-pepper noise
+        kernel_small = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        opened = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel_small, iterations=1)
+
+        # Close to bridge gaps in edge map
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel, iterations=2)
+        if cv2.countNonZero(closed) == 0:
+            closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        for mode in retrieval_modes:
+            contours, _ = cv2.findContours(closed, mode, cv2.CHAIN_APPROX_SIMPLE)
+            all_contours.extend(contours)
 
     candidates: list[Region] = []
-    for contour in contours:
+    for contour in all_contours:
         x, y, region_width, region_height = cv2.boundingRect(contour)
         area = region_width * region_height
+        aspect = region_width / max(region_height, 1)
+
         if area < min_area or area > max_area:
             continue
         if region_width < 16 or region_height < 16:
             continue
+        if aspect < 0.15 or aspect > 18:
+            continue
         if _touches_image_border(x, y, region_width, region_height, width, height):
+            continue
+        if _is_solid_color_region(gray, x, y, region_width, region_height, area, width * height):
             continue
 
         role = _classify_region(region_width, region_height, area, width, height)
-        confidence = min(0.95, 0.55 + math.sqrt(area / (width * height)))
+        confidence = _calculate_region_confidence(region_width, region_height, area, width, height, gray, x, y)
         candidates.append(Region(x, y, region_width, region_height, role, round(confidence, 3)))
 
-    return _dedupe_regions(candidates)[:max_regions]
+    return _filter_contained_regions(_dedupe_regions(candidates))[:max_regions]
 
 
 def _filter_hotspot_regions(
@@ -353,6 +381,9 @@ def _filter_hotspot_regions(
     image_area = image_width * image_height
     for region in regions:
         button_candidate = region.role == "button" or _is_icon_button_candidate(region, image_area)
+        # Upgrade to button candidate if OCR text suggests interactive element
+        if not button_candidate:
+            button_candidate = _has_action_text(region, ocr_regions)
         if not button_candidate:
             continue
         if _is_text_dominated(region, ocr_regions):
@@ -378,6 +409,34 @@ def _is_text_dominated(region: Region, ocr_regions: list[OcrRegion]) -> bool:
         text_area += _intersection_area(region_box, _ocr_box(text_region))
 
     return text_area / max(region.area, 1) > 0.28
+
+
+_ACTION_KEYWORDS = {
+    "login", "sign in", "sign up", "submit", "cancel", "ok", "next", "back",
+    "save", "delete", "edit", "add", "remove", "close", "send", "share",
+    "download", "upload", "play", "pause", "stop", "start", "confirm",
+    "register", "buy", "checkout", "continue", "search", "go", "apply",
+    "accept", "decline", "agree", "skip", "try", "get", "install", "update",
+    "open", "view", "more", "menu", "settings", "help", "home", "profile",
+}
+
+
+def _has_action_text(region: Region, ocr_regions: list[OcrRegion]) -> bool:
+    """True if the region overlaps OCR text that looks like an action/button label."""
+    if not ocr_regions:
+        return False
+    region_box = _region_box(region)
+    for text_region in ocr_regions:
+        text_box = _ocr_box(text_region)
+        if _intersection_area(region_box, text_box) == 0:
+            continue
+        text_lower = text_region.text.strip().lower()
+        if text_lower in _ACTION_KEYWORDS:
+            return True
+        # Short text (1-2 words) overlapping a clickable-looking region is likely a button
+        if len(text_lower.split()) <= 2 and len(text_lower) <= 15:
+            return True
+    return False
 
 
 def _detect_text_regions(image_path: Path) -> list[OcrRegion]:
@@ -512,6 +571,50 @@ def _box_to_points(box) -> list[tuple[float, float]]:
     return points
 
 
+def _calculate_region_confidence(region_width, region_height, area, image_width, image_height,
+                                 gray_image=None, x=0, y=0):
+    """Calculate confidence score for a detected region."""
+    image_area = image_width * image_height
+
+    # Base confidence from area ratio
+    area_ratio = area / image_area
+    base_confidence = min(0.95, 0.55 + math.sqrt(area_ratio))
+
+    # Penalty for very small regions
+    if area < 800:
+        base_confidence -= 0.1
+
+    # Penalty for regions with extreme aspect ratios
+    aspect = region_width / max(region_height, 1)
+    if aspect < 0.2 or aspect > 15:
+        base_confidence -= 0.15
+
+    # Bonus for regions that look like buttons (horizontal rectangles)
+    if 1.5 <= aspect <= 8.0:
+        base_confidence += 0.05
+
+    # Edge density bonus: textured regions are more likely real UI
+    if gray_image is not None and area > 0:
+        edge_density = _region_edge_density(gray_image, x, y, region_width, region_height)
+        if edge_density > 0.08:
+            base_confidence += 0.08
+        elif edge_density < 0.02:
+            base_confidence -= 0.05
+
+    # Positional bonus: center of image is more likely to contain UI
+    cx = x + region_width / 2
+    cy = y + region_height / 2
+    dist_from_center = math.sqrt(
+        ((cx - image_width / 2) / (image_width / 2)) ** 2
+        + ((cy - image_height / 2) / (image_height / 2)) ** 2
+    )
+    if dist_from_center < 0.35:
+        base_confidence += 0.05
+
+    # Ensure confidence is within valid range
+    return max(0.1, min(0.95, base_confidence))
+
+
 def _classify_region(region_width: int, region_height: int, area: int, image_width: int, image_height: int) -> str:
     aspect = region_width / max(region_height, 1)
     image_area = image_width * image_height
@@ -532,6 +635,55 @@ def _dedupe_regions(regions: list[Region]) -> list[Region]:
             continue
         kept.append(region)
     return sorted(kept, key=lambda region: (region.y, region.x, -region.area))
+
+
+def _is_solid_color_region(gray_image, x, y, region_width, region_height, area, image_area) -> bool:
+    """True if a tiny region is nearly uniform in color - likely a false positive."""
+    try:
+        import cv2
+    except ImportError:
+        return False
+    if area > image_area * 0.01:
+        return False
+    crop = gray_image[y : y + region_height, x : x + region_width]
+    if crop.size == 0:
+        return True
+    std = float(cv2.meanStdDev(crop)[1][0][0])
+    return std < 3.0
+
+
+def _region_edge_density(gray_image, x, y, region_width, region_height) -> float:
+    """Proportion of edge pixels inside the region - higher means more textured."""
+    try:
+        import cv2
+    except ImportError:
+        return 0.0
+    crop = gray_image[y : y + region_height, x : x + region_width]
+    if crop.size == 0:
+        return 0.0
+    edges = cv2.Canny(crop, 50, 150)
+    return float(cv2.countNonZero(edges)) / max(crop.size, 1)
+
+
+def _filter_contained_regions(regions: list[Region]) -> list[Region]:
+    """Remove regions that are almost entirely contained inside a larger region."""
+    if len(regions) < 2:
+        return regions
+    result: list[Region] = []
+    for i, inner in enumerate(regions):
+        contained = False
+        for j, outer in enumerate(regions):
+            if i == j:
+                continue
+            if outer.area <= inner.area:
+                continue
+            iou = _intersection_over_union(inner, outer)
+            if iou > 0.85:
+                contained = True
+                break
+        if not contained:
+            result.append(inner)
+    return result
 
 
 def _touches_image_border(x: int, y: int, width: int, height: int, image_width: int, image_height: int) -> bool:

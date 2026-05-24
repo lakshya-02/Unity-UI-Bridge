@@ -108,9 +108,15 @@ namespace UnityUIBridge.Editor.Import
             return FindSceneCanvasForImport();
         }
 
+        public static int ClearGeneratedImports(string rootName = null)
+        {
+            return DeleteExistingImportRoots(rootName, null);
+        }
+
         private static GameObject CreateCanvas(string rootName, Vector2 referenceResolution, string canvasMode)
         {
             var root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName);
+            root.transform.localScale = Vector3.one;
             var rectTransform = root.AddComponent<RectTransform>();
             rectTransform.sizeDelta = referenceResolution;
 
@@ -127,9 +133,10 @@ namespace UnityUIBridge.Editor.Import
             return root;
         }
 
-        private static void DeleteExistingImportRoots(string rootName, Canvas targetCanvas)
+        private static int DeleteExistingImportRoots(string rootName, Canvas targetCanvas)
         {
             var normalizedRootName = string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName;
+            var deletedCount = 0;
             var transforms = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var transform in transforms)
             {
@@ -145,7 +152,10 @@ namespace UnityUIBridge.Editor.Import
                 }
 
                 Undo.DestroyObjectImmediate(gameObject);
+                deletedCount++;
             }
+
+            return deletedCount;
         }
 
         private static bool IsImportRootName(string objectName, string rootName)
@@ -191,6 +201,7 @@ namespace UnityUIBridge.Editor.Import
             var root = new GameObject(string.IsNullOrWhiteSpace(rootName) ? "Unity UI Bridge Import" : rootName);
             Undo.RegisterCreatedObjectUndo(root, "Import Unity UI Bridge Spec");
             root.transform.SetParent(targetCanvas.transform, false);
+            root.transform.localScale = Vector3.one;
 
             var rectTransform = root.AddComponent<RectTransform>();
 
@@ -230,6 +241,11 @@ namespace UnityUIBridge.Editor.Import
 
             var rectTransform = gameObject.AddComponent<RectTransform>();
             ApplyRectTransform(rectTransform, node, parentRect);
+            if (IsSourceBackgroundNode(spec, node))
+            {
+                StretchToParent(rectTransform);
+            }
+
             AddRoleComponents(spec, gameObject, node);
             if (options.ApplyLayoutGroups)
             {
@@ -245,7 +261,6 @@ namespace UnityUIBridge.Editor.Import
             }
         }
 
-        private static float _currentOverlayDepth = 0f;
         private static readonly float _overlayDepthStep = 0.01f;
 
         private static void CreateDebugOverlay(
@@ -264,7 +279,6 @@ namespace UnityUIBridge.Editor.Import
             overlayRect.anchoredPosition = Vector2.zero;
             overlayRect.sizeDelta = new Vector2(sourceCanvasRect.width, sourceCanvasRect.height);
 
-            _currentOverlayDepth = 0f;
             var nodeDepthMap = new System.Collections.Generic.Dictionary<string, float>();
             CalculateNodeDepths(nodes, 0, nodeDepthMap);
 
@@ -303,7 +317,7 @@ namespace UnityUIBridge.Editor.Import
             Undo.RegisterCreatedObjectUndo(gameObject, "Create UI Bridge Debug Node");
             gameObject.transform.SetParent(overlay, false);
 
-            var depth = nodeDepthMap.GetValueOrDefault(node.id, 0f);
+            var depth = nodeDepthMap.TryGetValue(node.id, out var resolvedDepth) ? resolvedDepth : 0f;
             gameObject.transform.SetAsLastSibling();
 
             var rectTransform = gameObject.AddComponent<RectTransform>();
@@ -621,6 +635,32 @@ namespace UnityUIBridge.Editor.Import
             rectTransform.anchoredPosition = new Vector2(
                 rect.x - parentX,
                 -(rect.y - parentY));
+        }
+
+        private static void StretchToParent(RectTransform rectTransform)
+        {
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+            rectTransform.sizeDelta = Vector2.zero;
+            rectTransform.anchoredPosition = Vector2.zero;
+        }
+
+        private static bool IsSourceBackgroundNode(UnityUiBridgeSpec spec, UnityUiBridgeNode node)
+        {
+            if (node == null || node.role != "image")
+            {
+                return false;
+            }
+
+            if (string.Equals(node.id, "node.background", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.Equals(spec.FindAsset(node.assetRef)?.type, "background", StringComparison.OrdinalIgnoreCase);
         }
 
         private static Vector2 ResolveReferenceResolution(UnityUiBridgeSpec spec, UnityUiBridgeNode canvasNode)
