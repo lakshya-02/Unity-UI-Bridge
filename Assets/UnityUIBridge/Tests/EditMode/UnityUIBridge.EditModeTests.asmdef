@@ -3,7 +3,8 @@
   "rootNamespace": "UnityUIBridge.Tests.EditMode",
   "references": [
     "UnityUIBridge.Runtime",
-    "UnityUIBridge.Editor"
+    "UnityUIBridge.Editor",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

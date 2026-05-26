@@ -1,5 +1,6 @@
 using System.IO;
 using System;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -141,6 +142,11 @@ namespace UnityUIBridge.Editor.Import
             var transforms = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var transform in transforms)
             {
+                if (transform == null)
+                {
+                    continue;
+                }
+
                 var gameObject = transform.gameObject;
                 if (targetCanvas != null && gameObject == targetCanvas.gameObject)
                 {
@@ -360,11 +366,10 @@ namespace UnityUIBridge.Editor.Import
             rectTransform.anchoredPosition = new Vector2(4f, -4f);
             rectTransform.sizeDelta = new Vector2(Mathf.Max(180f, node.rect.width), 22f);
 
-            var text = label.AddComponent<Text>();
+            var text = label.AddComponent<TextMeshProUGUI>();
             text.text = $"{node.id} ({node.role})";
-            text.font = ResolveBuiltInFont();
-            text.fontSize = Mathf.RoundToInt(Mathf.Lerp(12f, 16f, 1f - depth));
-            text.alignment = TextAnchor.MiddleLeft;
+            text.fontSize = Mathf.Lerp(12f, 16f, 1f - depth);
+            text.alignment = TextAlignmentOptions.MidlineLeft;
             text.color = Color.white;
             text.raycastTarget = false;
 
@@ -410,15 +415,26 @@ namespace UnityUIBridge.Editor.Import
             switch (node.role)
             {
                 case "button":
+                    var sourceBackgroundCoversVisuals = HasSourceBackground(spec);
                     var buttonImage = EnsureImage(gameObject, ResolveButtonFallbackColor(spec, node));
-                    var hasButtonSprite = TryApplyAssetSprite(spec, node, buttonImage);
-                    if (!hasButtonSprite && HasSourceBackground(spec))
+                    if (!sourceBackgroundCoversVisuals)
                     {
+                        TryApplyAssetSprite(spec, node, buttonImage);
+                    }
+                    else
+                    {
+                        buttonImage.sprite = null;
+                        buttonImage.type = Image.Type.Simple;
                         buttonImage.color = new Color(1f, 1f, 1f, 0f);
                     }
 
                     var button = gameObject.AddComponent<Button>();
                     button.targetGraphic = buttonImage;
+                    if (sourceBackgroundCoversVisuals)
+                    {
+                        button.transition = Selectable.Transition.None;
+                    }
+
                     break;
                 case "text":
                     if (HasSourceBackground(spec) && !options.RenderRecognizedText)
@@ -426,9 +442,8 @@ namespace UnityUIBridge.Editor.Import
                         break;
                     }
 
-                    var text = gameObject.AddComponent<Text>();
+                    var text = gameObject.AddComponent<TextMeshProUGUI>();
                     text.text = node.text?.content ?? string.Empty;
-                    text.font = ResolveBuiltInFont();
                     text.fontSize = ResolveFontSize(spec, node, 24);
                     text.alignment = ResolveAlignment(spec, node);
                     text.color = Color.white;
@@ -437,7 +452,7 @@ namespace UnityUIBridge.Editor.Import
                 case "input":
                     var inputImage = EnsureImage(gameObject, new Color(0.08f, 0.09f, 0.1f, 0.85f));
                     TryApplyAssetSprite(spec, node, inputImage);
-                    var input = gameObject.AddComponent<InputField>();
+                    var input = gameObject.AddComponent<TMP_InputField>();
                     input.targetGraphic = inputImage;
                     break;
                 case "toggle":
@@ -760,21 +775,15 @@ namespace UnityUIBridge.Editor.Import
                 : fallback;
         }
 
-        private static TextAnchor ResolveAlignment(UnityUiBridgeSpec spec, UnityUiBridgeNode node)
+        private static TextAlignmentOptions ResolveAlignment(UnityUiBridgeSpec spec, UnityUiBridgeNode node)
         {
             var alignment = spec.FindStyle(node.styleRef)?.typography?.alignment;
             return alignment switch
             {
-                "left" => TextAnchor.MiddleLeft,
-                "right" => TextAnchor.MiddleRight,
-                _ => TextAnchor.MiddleCenter
+                "left" => TextAlignmentOptions.MidlineLeft,
+                "right" => TextAlignmentOptions.MidlineRight,
+                _ => TextAlignmentOptions.Midline
             };
-        }
-
-        private static Font ResolveBuiltInFont()
-        {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         }
 
         private static void EnsureEventSystem()

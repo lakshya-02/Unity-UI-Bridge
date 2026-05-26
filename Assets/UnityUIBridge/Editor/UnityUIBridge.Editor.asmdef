@@ -2,7 +2,8 @@
   "name": "UnityUIBridge.Editor",
   "rootNamespace": "UnityUIBridge.Editor",
   "references": [
-    "UnityUIBridge.Runtime"
+    "UnityUIBridge.Runtime",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

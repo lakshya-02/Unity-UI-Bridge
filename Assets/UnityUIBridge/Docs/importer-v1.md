@@ -57,8 +57,8 @@ The importer currently creates:
 - Sprite assignment for generated `assetRef` PNG files
 - Button components for `button` nodes
 - Transparent button hotspots when a generated full-image background is present
-- Text components for `text` nodes
-- InputField, Toggle, and Slider components for matching roles
+- TextMeshProUGUI components for visible `text` nodes and debug labels
+- TMP_InputField, Toggle, and Slider components for matching roles
 - Optional vertical or horizontal layout groups when explicitly enabled in the importer window
 
 This is intentionally not a pixel-perfect renderer yet. It is a reconstruction scaffold: a fast, inspectable uGUI hierarchy that developers can tune by hand or improve with future adapters.

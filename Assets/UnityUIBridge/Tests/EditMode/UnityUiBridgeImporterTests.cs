@@ -1,5 +1,6 @@
 using System.IO;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -65,7 +66,7 @@ namespace UnityUIBridge.Tests.EditMode
 
             var playLabel = GameObject.Find("node.play-label");
             Assert.That(playLabel, Is.Not.Null);
-            Assert.That(playLabel.GetComponent<Text>().text, Is.EqualTo("PLAY"));
+            Assert.That(playLabel.GetComponent<TMP_Text>().text, Is.EqualTo("PLAY"));
         }
 
         [Test]
@@ -385,7 +386,7 @@ namespace UnityUIBridge.Tests.EditMode
             var textNode = GameObject.Find("Generated Text");
 
             Assert.That(textNode, Is.Not.Null);
-            Assert.That(textNode.GetComponent<Text>(), Is.Null);
+            Assert.That(textNode.GetComponent<TMP_Text>(), Is.Null);
         }
 
         [Test]
@@ -563,6 +564,7 @@ namespace UnityUIBridge.Tests.EditMode
           ""role"": ""button"",
           ""name"": ""Play Hotspot"",
           ""rect"": { ""x"": 20, ""y"": 20, ""width"": 24, ""height"": 24 },
+          ""assetRef"": ""asset.background"",
           ""interactionRef"": ""interaction.play""
         }
       ]
@@ -591,6 +593,7 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(backgroundRect.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(backgroundRect.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(hotspot.GetComponent<Button>(), Is.Not.Null);
+            Assert.That(hotspot.GetComponent<Button>().transition, Is.EqualTo(Selectable.Transition.None));
             Assert.That(hotspot.GetComponent<Image>().sprite, Is.Null);
             Assert.That(hotspot.GetComponent<Image>().color.a, Is.EqualTo(0f).Within(0.001f));
         }
@@ -620,7 +623,7 @@ namespace UnityUIBridge.Tests.EditMode
 
             var label = playButtonDebug.Find("Label");
             Assert.That(label, Is.Not.Null);
-            Assert.That(label.GetComponent<Text>().text, Is.EqualTo("node.play-button (button)"));
+            Assert.That(label.GetComponent<TMP_Text>().text, Is.EqualTo("node.play-button (button)"));
             Assert.That(playButtonDebug.GetComponent<Image>().raycastTarget, Is.False);
         }
 
