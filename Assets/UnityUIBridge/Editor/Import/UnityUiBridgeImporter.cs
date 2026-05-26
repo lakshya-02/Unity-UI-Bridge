@@ -20,6 +20,7 @@ namespace UnityUIBridge.Editor.Import
         public bool FillTargetCanvas = false;
         public bool CreateDebugOverlay = false;
         public bool ReplaceExistingImports = true;
+        public bool RenderRecognizedText = false;
     }
 
     public static class UnityUiBridgeImporter
@@ -246,7 +247,7 @@ namespace UnityUIBridge.Editor.Import
                 StretchToParent(rectTransform);
             }
 
-            AddRoleComponents(spec, gameObject, node);
+            AddRoleComponents(spec, gameObject, node, options);
             if (options.ApplyLayoutGroups)
             {
                 AddLayoutGroup(gameObject, node);
@@ -400,7 +401,11 @@ namespace UnityUIBridge.Editor.Import
             };
         }
 
-        private static void AddRoleComponents(UnityUiBridgeSpec spec, GameObject gameObject, UnityUiBridgeNode node)
+        private static void AddRoleComponents(
+            UnityUiBridgeSpec spec,
+            GameObject gameObject,
+            UnityUiBridgeNode node,
+            UnityUiBridgeImportOptions options)
         {
             switch (node.role)
             {
@@ -416,6 +421,11 @@ namespace UnityUIBridge.Editor.Import
                     button.targetGraphic = buttonImage;
                     break;
                 case "text":
+                    if (HasSourceBackground(spec) && !options.RenderRecognizedText)
+                    {
+                        break;
+                    }
+
                     var text = gameObject.AddComponent<Text>();
                     text.text = node.text?.content ?? string.Empty;
                     text.font = ResolveBuiltInFont();

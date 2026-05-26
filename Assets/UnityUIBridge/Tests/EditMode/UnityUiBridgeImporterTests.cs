@@ -275,6 +275,120 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
+        public void ImporterCanStretchGeneratedImageToFillFullHdCanvas()
+        {
+            var spec = UnityUiBridgeSpecParser.FromJson(@"{
+  ""schemaVersion"": ""1.0.0"",
+  ""document"": {
+    ""id"": ""doc.generated-image-stretch"",
+    ""title"": ""Generated Image Stretch"",
+    ""source"": { ""type"": ""screenshot"", ""uri"": ""generated-image-stretch.png"" },
+    ""referenceResolution"": { ""width"": 1800, ""height"": 1200 },
+    ""coordinateSystem"": { ""origin"": ""top-left"", ""unit"": ""pixel"", ""yAxis"": ""down"" },
+    ""target"": { ""engine"": ""Unity"", ""uiSystem"": ""uGUI"", ""canvasMode"": ""screen-space-overlay"" }
+  },
+  ""assets"": [],
+  ""styles"": [],
+  ""nodes"": [
+    {
+      ""id"": ""node.canvas"",
+      ""role"": ""canvas"",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 1800, ""height"": 1200 },
+      ""children"": []
+    }
+  ],
+  ""interactions"": [],
+  ""extensions"": {}
+}");
+            var targetCanvasObject = new GameObject("Full HD Stretch Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            _root = targetCanvasObject;
+
+            var targetRect = targetCanvasObject.GetComponent<RectTransform>();
+            targetRect.sizeDelta = new Vector2(1920f, 1080f);
+            targetCanvasObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1920f, 1080f);
+
+            var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Full HD Stretch Test",
+                CreateEventSystem = false,
+                TargetCanvas = targetCanvasObject.GetComponent<Canvas>(),
+                FitToTargetCanvas = true,
+                PreserveAspectRatio = false
+            });
+
+            var sourceFrame = importedRoot.transform.Find("Source Frame");
+            Assert.That(sourceFrame, Is.Not.Null);
+            AssertSize(sourceFrame.gameObject, 1800f, 1200f);
+            AssertScale(sourceFrame.gameObject, 1.066667f, 0.9f);
+            AssertPosition(sourceFrame.gameObject, 0f, 0f);
+            AssertCentered(sourceFrame.gameObject);
+        }
+
+        [Test]
+        public void ImporterKeepsOcrTextAsMetadataWhenSourceBackgroundExists()
+        {
+            var assetPath = CreateTemporarySpriteAsset();
+            var json = @"{
+  ""schemaVersion"": ""1.0.0"",
+  ""document"": {
+    ""id"": ""doc.text-metadata-import"",
+    ""title"": ""Text Metadata Import"",
+    ""source"": { ""type"": ""screenshot"", ""uri"": ""text-metadata-import.png"" },
+    ""referenceResolution"": { ""width"": 64, ""height"": 64 },
+    ""coordinateSystem"": { ""origin"": ""top-left"", ""unit"": ""pixel"", ""yAxis"": ""down"" },
+    ""target"": { ""engine"": ""Unity"", ""uiSystem"": ""uGUI"", ""canvasMode"": ""screen-space-overlay"" }
+  },
+  ""assets"": [
+    {
+      ""id"": ""asset.background"",
+      ""type"": ""background"",
+      ""uri"": """ + assetPath.Replace("\\", "/") + @""",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""sourceNodeId"": ""node.background""
+    }
+  ],
+  ""styles"": [],
+  ""nodes"": [
+    {
+      ""id"": ""node.canvas"",
+      ""role"": ""canvas"",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+      ""children"": [
+        {
+          ""id"": ""node.background"",
+          ""role"": ""image"",
+          ""name"": ""Source Background"",
+          ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
+          ""assetRef"": ""asset.background""
+        },
+        {
+          ""id"": ""node.generated-text"",
+          ""role"": ""text"",
+          ""name"": ""Generated Text"",
+          ""rect"": { ""x"": 8, ""y"": 16, ""width"": 48, ""height"": 16 },
+          ""text"": { ""content"": ""PLAY"", ""language"": ""en"", ""ocrConfidence"": 0.9 }
+        }
+      ]
+    }
+  ],
+  ""interactions"": [],
+  ""extensions"": {}
+}";
+            var spec = UnityUiBridgeSpecParser.FromJson(json);
+
+            _root = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Text Metadata Test",
+                CreateEventSystem = false
+            });
+
+            var textNode = GameObject.Find("Generated Text");
+
+            Assert.That(textNode, Is.Not.Null);
+            Assert.That(textNode.GetComponent<Text>(), Is.Null);
+        }
+
+        [Test]
         public void ImporterIgnoresStaleGeneratedTargetCanvas()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
