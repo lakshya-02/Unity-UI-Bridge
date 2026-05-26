@@ -225,7 +225,6 @@ namespace UnityUIBridge.Runtime.Spec
         public UnityUiBridgeText text;
         public string interactionRef;
         public float confidence = 1f;
-        [SerializeReference]
         public UnityUiBridgeNode[] children;
 
         public string DisplayName => string.IsNullOrWhiteSpace(name) ? id : name;

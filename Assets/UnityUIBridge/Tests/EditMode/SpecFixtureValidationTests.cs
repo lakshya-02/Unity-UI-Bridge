@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using NUnit.Framework;
 using UnityEngine;
+using UnityUIBridge.Runtime.Spec;
 
 namespace UnityUIBridge.Tests.EditMode
 {
@@ -21,6 +22,23 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(result.ExitCode, Is.EqualTo(0), result.Output);
             StringAssert.Contains("valid specs passed", result.Output);
             StringAssert.Contains("expected invalid specs failed", result.Output);
+        }
+
+        [Test]
+        public void UnityParserKeepsFixtureHierarchyChildren()
+        {
+            var validFixtureDir = Path.Combine(Application.dataPath, "UnityUIBridge", "Samples", "Specs");
+            var validFixturePaths = Directory.GetFiles(validFixtureDir, "*.valid.json");
+
+            Assert.That(validFixturePaths, Is.Not.Empty);
+
+            foreach (var fixturePath in validFixturePaths)
+            {
+                var spec = UnityUiBridgeSpecParser.LoadFromFile(fixturePath);
+
+                Assert.That(spec.nodes, Is.Not.Empty, Path.GetFileName(fixturePath));
+                Assert.That(spec.nodes[0].children, Is.Not.Empty, Path.GetFileName(fixturePath));
+            }
         }
 
         private static ProcessResult RunPython(string projectRoot, string validatorPath)
