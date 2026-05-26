@@ -17,7 +17,7 @@ namespace UnityUIBridge.Editor.Import
         public Canvas TargetCanvas;
         public bool FitToTargetCanvas = true;
         public bool PreserveAspectRatio = true;
-        public bool FillTargetCanvas = true;
+        public bool FillTargetCanvas = false;
         public bool CreateDebugOverlay = false;
         public bool ReplaceExistingImports = true;
     }

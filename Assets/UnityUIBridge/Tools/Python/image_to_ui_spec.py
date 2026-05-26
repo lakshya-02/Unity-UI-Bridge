@@ -55,13 +55,14 @@ def generate_spec(
 ) -> dict:
     path = Path(image_path)
     image, width, height = _load_image(path)
-    regions = _detect_layout_regions(image, max_regions=max_regions)
+    detection_limit = max(max_regions * 3, 96)
+    regions = _detect_layout_regions(image, max_regions=detection_limit)
     ocr_regions = _detect_text_regions(path) if run_ocr else []
     reconstruction_regions = (
-        regions
+        regions[:max_regions]
         if emit_region_sprites
         else _filter_hotspot_regions(regions, ocr_regions, width, height)
-    )
+    )[:max_regions]
     assets, asset_refs = _extract_assets(
         path,
         image,
@@ -378,22 +379,23 @@ def _filter_hotspot_regions(
     image_height: int,
 ) -> list[Region]:
     hotspots: list[Region] = []
-    image_area = image_width * image_height
     for region in regions:
         button_candidate = (
             (region.role == "button" and _is_plausible_button_region(region, image_width, image_height))
-            or _is_icon_button_candidate(region, image_area)
+            or _is_icon_button_candidate(region, image_width, image_height)
         )
         if not button_candidate and _is_plausible_button_region(region, image_width, image_height):
             button_candidate = _has_action_text(region, ocr_regions)
         if not button_candidate:
             continue
-        if _is_text_dominated(region, ocr_regions):
+        if not _is_bottom_navigation_region(region, image_height) and _is_text_dominated(region, ocr_regions):
+            continue
+        if _looks_like_decorative_side_art(region, image_width, image_height) and not _has_action_text(region, ocr_regions):
             continue
 
         hotspots.append(replace(region, role="button"))
 
-    return _dedupe_regions(hotspots)
+    return _filter_nested_hotspots(_dedupe_regions(hotspots))
 
 
 def _is_plausible_button_region(region: Region, image_width: int, image_height: int) -> bool:
@@ -410,9 +412,34 @@ def _is_plausible_button_region(region: Region, image_width: int, image_height: 
     return 0.45 <= aspect <= 10.0
 
 
-def _is_icon_button_candidate(region: Region, image_area: int) -> bool:
+def _is_icon_button_candidate(region: Region, image_width: int, image_height: int) -> bool:
+    image_area = image_width * image_height
     aspect = region.width / max(region.height, 1)
-    return 0.65 <= aspect <= 1.55 and image_area * 0.002 <= region.area <= image_area * 0.08
+    if not (0.65 <= aspect <= 1.55 and image_area * 0.002 <= region.area <= image_area * 0.08):
+        return False
+
+    center_x = region.x + region.width * 0.5
+    center_y = region.y + region.height * 0.5
+    central_action_area = (
+        center_y >= image_height * 0.60
+        and abs(center_x - image_width * 0.5) <= image_width * 0.16
+        and region.area >= image_area * 0.006
+    )
+    bottom_navigation_area = center_y >= image_height * 0.86
+    return central_action_area or bottom_navigation_area
+
+
+def _is_bottom_navigation_region(region: Region, image_height: int) -> bool:
+    center_y = region.y + region.height * 0.5
+    return center_y >= image_height * 0.86
+
+
+def _looks_like_decorative_side_art(region: Region, image_width: int, image_height: int) -> bool:
+    center_x = region.x + region.width * 0.5
+    center_y = region.y + region.height * 0.5
+    near_side = center_x < image_width * 0.16 or center_x > image_width * 0.84
+    middle_band = image_height * 0.38 <= center_y <= image_height * 0.68
+    return near_side and middle_band
 
 
 def _is_text_dominated(region: Region, ocr_regions: list[OcrRegion]) -> bool:
@@ -425,6 +452,22 @@ def _is_text_dominated(region: Region, ocr_regions: list[OcrRegion]) -> bool:
         text_area += _intersection_area(region_box, _ocr_box(text_region))
 
     return text_area / max(region.area, 1) > 0.6
+
+
+def _filter_nested_hotspots(regions: list[Region]) -> list[Region]:
+    result: list[Region] = []
+    for index, region in enumerate(regions):
+        region_box = _region_box(region)
+        nested = False
+        for other_index, other in enumerate(regions):
+            if index == other_index or other.area <= region.area:
+                continue
+            if _intersection_area(region_box, _region_box(other)) / max(region.area, 1) > 0.82:
+                nested = True
+                break
+        if not nested:
+            result.append(region)
+    return result
 
 
 _ACTION_KEYWORDS = {

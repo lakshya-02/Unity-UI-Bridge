@@ -9,14 +9,20 @@ namespace UnityUIBridge.Editor
 {
     public sealed class UnityUiBridgeImporterWindow : EditorWindow
     {
+        private enum SourceScaleMode
+        {
+            FitWholeImage,
+            CoverCanvas,
+            Stretch
+        }
+
         private string _specPath = "Assets/UnityUIBridge/Samples/Specs/main-menu.valid.json";
         private string _rootName = "Unity UI Bridge Import";
         private bool _createEventSystem = true;
         private bool _applyLayoutGroups = false;
         private Canvas _targetCanvas;
         private bool _fitToTargetCanvas = true;
-        private bool _preserveAspectRatio = true;
-        private bool _fillTargetCanvas = true;
+        private SourceScaleMode _sourceScaleMode = SourceScaleMode.FitWholeImage;
         private bool _createDebugOverlay = false;
         private bool _replaceExistingImports = true;
         private string _imagePath = "Assets/UnityUIBridge/Generated/SmokeTests/synthetic-ui.png";
@@ -41,7 +47,7 @@ namespace UnityUIBridge.Editor
                 UnityUiBridgeImporter.FindSceneCanvasForImport(),
                 true,
                 true,
-                true);
+                false);
         }
 
         [MenuItem("Tools/Unity UI Bridge/Clear Generated Imports")]
@@ -59,11 +65,16 @@ namespace UnityUIBridge.Editor
             _targetCanvas = (Canvas)EditorGUILayout.ObjectField("Target Canvas", _targetCanvas, typeof(Canvas), true);
             _createEventSystem = EditorGUILayout.Toggle("Create EventSystem", _createEventSystem);
             _fitToTargetCanvas = EditorGUILayout.Toggle("Fit To Target Canvas", _fitToTargetCanvas);
-            _preserveAspectRatio = EditorGUILayout.Toggle("Preserve Aspect Ratio", _preserveAspectRatio);
-            _fillTargetCanvas = EditorGUILayout.Toggle("Fill Target Canvas", _fillTargetCanvas);
+            _sourceScaleMode = (SourceScaleMode)EditorGUILayout.EnumPopup("Source Scale Mode", _sourceScaleMode);
             _replaceExistingImports = EditorGUILayout.Toggle("Replace Existing Imports", _replaceExistingImports);
             _applyLayoutGroups = EditorGUILayout.Toggle("Apply Layout Groups", _applyLayoutGroups);
             _createDebugOverlay = EditorGUILayout.Toggle("Create Debug Overlay", _createDebugOverlay);
+            EditorGUILayout.HelpBox(
+                "Fit Whole Image keeps screenshot coordinates stable. Cover Canvas fills the screen but crops. Stretch ignores aspect ratio.",
+                MessageType.Info);
+
+            var preserveAspectRatio = _sourceScaleMode != SourceScaleMode.Stretch;
+            var fillTargetCanvas = _sourceScaleMode == SourceScaleMode.CoverCanvas;
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -90,8 +101,8 @@ namespace UnityUIBridge.Editor
                         _applyLayoutGroups,
                         _targetCanvas,
                         _fitToTargetCanvas,
-                        _preserveAspectRatio,
-                        _fillTargetCanvas,
+                        preserveAspectRatio,
+                        fillTargetCanvas,
                         _replaceExistingImports,
                         _createDebugOverlay);
                 }
@@ -111,6 +122,11 @@ namespace UnityUIBridge.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
+                if (GUILayout.Button("Use Selected Image"))
+                {
+                    UseSelectedImageAsset();
+                }
+
                 if (GUILayout.Button("Browse Image"))
                 {
                     var selected = EditorUtility.OpenFilePanel("Select UI Image", Application.dataPath, "png,jpg,jpeg");
@@ -191,6 +207,8 @@ namespace UnityUIBridge.Editor
             if (_importAfterGenerate)
             {
                 _targetCanvas = UnityUiBridgeImporter.ResolveImportTargetCanvas(_targetCanvas);
+                var preserveAspectRatio = _sourceScaleMode != SourceScaleMode.Stretch;
+                var fillTargetCanvas = _sourceScaleMode == SourceScaleMode.CoverCanvas;
                 ImportSpec(
                     _specPath,
                     _rootName,
@@ -198,11 +216,31 @@ namespace UnityUIBridge.Editor
                     _applyLayoutGroups,
                     _targetCanvas,
                     _fitToTargetCanvas,
-                    _preserveAspectRatio,
-                    _fillTargetCanvas,
+                    preserveAspectRatio,
+                    fillTargetCanvas,
                     _replaceExistingImports,
                     _createDebugOverlay);
             }
+        }
+
+        private void UseSelectedImageAsset()
+        {
+            var selectedTexture = Selection.activeObject as Texture2D;
+            if (selectedTexture == null)
+            {
+                EditorUtility.DisplayDialog("Unity UI Bridge", "Select a Texture2D asset in the Project window first.", "OK");
+                return;
+            }
+
+            var assetPath = AssetDatabase.GetAssetPath(selectedTexture);
+            if (string.IsNullOrWhiteSpace(assetPath))
+            {
+                EditorUtility.DisplayDialog("Unity UI Bridge", "The selected image is not a project asset.", "OK");
+                return;
+            }
+
+            _imagePath = assetPath;
+            _generatedSpecPath = $"Assets/UnityUIBridge/Generated/Specs/{Path.GetFileNameWithoutExtension(assetPath)}-ui.json";
         }
 
         private static ProcessResult RunPython(string workingDirectory, string arguments)

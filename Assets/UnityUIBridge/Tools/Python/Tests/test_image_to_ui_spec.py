@@ -116,12 +116,16 @@ class ImageToUiSpecTests(unittest.TestCase):
         regions = [
             image_to_ui_spec.Region(0, 52, 1800, 983, "panel", 0.95),
             image_to_ui_spec.Region(67, 88, 1681, 439, "panel", 0.95),
+            image_to_ui_spec.Region(49, 532, 193, 187, "icon", 0.67),
             image_to_ui_spec.Region(809, 799, 181, 151, "icon", 0.85),
+            image_to_ui_spec.Region(864, 818, 72, 109, "image", 0.61),
             image_to_ui_spec.Region(700, 640, 360, 84, "button", 0.82),
+            image_to_ui_spec.Region(1606, 1103, 74, 74, "icon", 0.68),
         ]
         ocr_regions = [
             image_to_ui_spec.OcrRegion(202, 230, 1051, 144, "CYBERPUNK GUI", 0.9, "test"),
             image_to_ui_spec.OcrRegion(760, 660, 240, 42, "PLAY", 0.9, "test"),
+            image_to_ui_spec.OcrRegion(1608, 1098, 84, 78, "4p", 0.8, "test"),
         ]
 
         hotspots = image_to_ui_spec._filter_hotspot_regions(regions, ocr_regions, 1800, 1200)
@@ -129,8 +133,11 @@ class ImageToUiSpecTests(unittest.TestCase):
 
         self.assertNotIn((0, 52, 1800, 983), hotspot_boxes)
         self.assertNotIn((67, 88, 1681, 439), hotspot_boxes)
+        self.assertNotIn((49, 532, 193, 187), hotspot_boxes)
         self.assertIn((809, 799, 181, 151), hotspot_boxes)
+        self.assertNotIn((864, 818, 72, 109), hotspot_boxes)
         self.assertIn((700, 640, 360, 84), hotspot_boxes)
+        self.assertIn((1606, 1103, 74, 74), hotspot_boxes)
 
 
 def _write_synthetic_ui_png(path):

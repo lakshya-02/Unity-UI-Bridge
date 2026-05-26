@@ -126,7 +126,7 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
-        public void ImporterFillsTargetCanvasByDefaultWhenAspectDiffers()
+        public void ImporterFitsWholeSourceFrameByDefaultWhenAspectDiffers()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
             var targetCanvasObject = new GameObject("Square Scene Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
@@ -147,16 +147,16 @@ namespace UnityUIBridge.Tests.EditMode
 
             var sourceFrame = importedRoot.transform.Find("Source Frame");
             Assert.That(sourceFrame, Is.Not.Null);
-            AssertScale(sourceFrame.gameObject, 0.925926f, 0.925926f);
+            AssertScale(sourceFrame.gameObject, 0.520833f, 0.520833f);
             AssertPosition(sourceFrame.gameObject, 0f, 0f);
             AssertCentered(sourceFrame.gameObject);
         }
 
         [Test]
-        public void ImporterCanLetterboxSourceFrameWhenRequested()
+        public void ImporterCanCoverSourceFrameWhenRequested()
         {
             var spec = UnityUiBridgeSpecParser.LoadFromFile(SamplePath("main-menu.valid.json"));
-            var targetCanvasObject = new GameObject("Square Letterbox Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            var targetCanvasObject = new GameObject("Square Cover Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             _root = targetCanvasObject;
 
             var targetRect = targetCanvasObject.GetComponent<RectTransform>();
@@ -165,17 +165,17 @@ namespace UnityUIBridge.Tests.EditMode
 
             var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
             {
-                RootName = "Imported Letterbox Test",
+                RootName = "Imported Cover Test",
                 CreateEventSystem = false,
                 TargetCanvas = targetCanvasObject.GetComponent<Canvas>(),
                 FitToTargetCanvas = true,
                 PreserveAspectRatio = true,
-                FillTargetCanvas = false
+                FillTargetCanvas = true
             });
 
             var sourceFrame = importedRoot.transform.Find("Source Frame");
             Assert.That(sourceFrame, Is.Not.Null);
-            AssertScale(sourceFrame.gameObject, 0.520833f, 0.520833f);
+            AssertScale(sourceFrame.gameObject, 0.925926f, 0.925926f);
             AssertPosition(sourceFrame.gameObject, 0f, 0f);
             AssertCentered(sourceFrame.gameObject);
         }
@@ -223,6 +223,55 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(sourceFrame, Is.Not.Null);
             AssertCentered(sourceFrame.gameObject);
             AssertPosition(sourceFrame.gameObject, 0f, 0f);
+        }
+
+        [Test]
+        public void ImporterFitsGeneratedImageIntoFullHdCanvasWithoutCropping()
+        {
+            var spec = UnityUiBridgeSpecParser.FromJson(@"{
+  ""schemaVersion"": ""1.0.0"",
+  ""document"": {
+    ""id"": ""doc.generated-image-fit"",
+    ""title"": ""Generated Image Fit"",
+    ""source"": { ""type"": ""screenshot"", ""uri"": ""generated-image-fit.png"" },
+    ""referenceResolution"": { ""width"": 1800, ""height"": 1200 },
+    ""coordinateSystem"": { ""origin"": ""top-left"", ""unit"": ""pixel"", ""yAxis"": ""down"" },
+    ""target"": { ""engine"": ""Unity"", ""uiSystem"": ""uGUI"", ""canvasMode"": ""screen-space-overlay"" }
+  },
+  ""assets"": [],
+  ""styles"": [],
+  ""nodes"": [
+    {
+      ""id"": ""node.canvas"",
+      ""role"": ""canvas"",
+      ""rect"": { ""x"": 0, ""y"": 0, ""width"": 1800, ""height"": 1200 },
+      ""children"": []
+    }
+  ],
+  ""interactions"": [],
+  ""extensions"": {}
+}");
+            var targetCanvasObject = new GameObject("Full HD Scene Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            _root = targetCanvasObject;
+
+            var targetRect = targetCanvasObject.GetComponent<RectTransform>();
+            targetRect.sizeDelta = new Vector2(1920f, 1080f);
+            targetCanvasObject.GetComponent<CanvasScaler>().referenceResolution = new Vector2(1920f, 1080f);
+
+            var importedRoot = UnityUiBridgeImporter.Import(spec, new UnityUiBridgeImportOptions
+            {
+                RootName = "Imported Full HD Fit Test",
+                CreateEventSystem = false,
+                TargetCanvas = targetCanvasObject.GetComponent<Canvas>(),
+                FitToTargetCanvas = true
+            });
+
+            var sourceFrame = importedRoot.transform.Find("Source Frame");
+            Assert.That(sourceFrame, Is.Not.Null);
+            AssertSize(sourceFrame.gameObject, 1800f, 1200f);
+            AssertScale(sourceFrame.gameObject, 0.9f, 0.9f);
+            AssertPosition(sourceFrame.gameObject, 0f, 0f);
+            AssertCentered(sourceFrame.gameObject);
         }
 
         [Test]
