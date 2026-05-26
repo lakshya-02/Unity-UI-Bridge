@@ -112,6 +112,26 @@ class ImageToUiSpecTests(unittest.TestCase):
         self.assertEqual("CLI Synthetic", payload["document"]["title"])
         self.assertEqual(["asset.background"], [asset["id"] for asset in generated_assets])
 
+    def test_hotspot_filter_rejects_large_panels_as_buttons(self):
+        regions = [
+            image_to_ui_spec.Region(0, 52, 1800, 983, "panel", 0.95),
+            image_to_ui_spec.Region(67, 88, 1681, 439, "panel", 0.95),
+            image_to_ui_spec.Region(809, 799, 181, 151, "icon", 0.85),
+            image_to_ui_spec.Region(700, 640, 360, 84, "button", 0.82),
+        ]
+        ocr_regions = [
+            image_to_ui_spec.OcrRegion(202, 230, 1051, 144, "CYBERPUNK GUI", 0.9, "test"),
+            image_to_ui_spec.OcrRegion(760, 660, 240, 42, "PLAY", 0.9, "test"),
+        ]
+
+        hotspots = image_to_ui_spec._filter_hotspot_regions(regions, ocr_regions, 1800, 1200)
+        hotspot_boxes = {(region.x, region.y, region.width, region.height) for region in hotspots}
+
+        self.assertNotIn((0, 52, 1800, 983), hotspot_boxes)
+        self.assertNotIn((67, 88, 1681, 439), hotspot_boxes)
+        self.assertIn((809, 799, 181, 151), hotspot_boxes)
+        self.assertIn((700, 640, 360, 84), hotspot_boxes)
+
 
 def _write_synthetic_ui_png(path):
     from PIL import Image, ImageDraw

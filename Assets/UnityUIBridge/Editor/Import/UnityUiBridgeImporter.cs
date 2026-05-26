@@ -507,10 +507,12 @@ namespace UnityUIBridge.Editor.Import
                 return false;
             }
 
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             EnsureSpriteImportSettings(assetPath);
             var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
             if (sprite == null)
             {
+                Debug.LogWarning($"Unity UI Bridge could not load sprite asset '{assetPath}' for node '{node.id}'.");
                 return false;
             }
 
@@ -558,6 +560,18 @@ namespace UnityUIBridge.Editor.Import
             if (textureImporter.spriteImportMode != SpriteImportMode.Single)
             {
                 textureImporter.spriteImportMode = SpriteImportMode.Single;
+                changed = true;
+            }
+
+            if (textureImporter.maxTextureSize < 8192)
+            {
+                textureImporter.maxTextureSize = 8192;
+                changed = true;
+            }
+
+            if (textureImporter.mipmapEnabled)
+            {
+                textureImporter.mipmapEnabled = false;
                 changed = true;
             }
 

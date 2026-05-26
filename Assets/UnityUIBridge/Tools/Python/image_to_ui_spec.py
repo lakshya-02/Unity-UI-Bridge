@@ -380,9 +380,11 @@ def _filter_hotspot_regions(
     hotspots: list[Region] = []
     image_area = image_width * image_height
     for region in regions:
-        button_candidate = region.role == "button" or _is_icon_button_candidate(region, image_area)
-        # Upgrade to button candidate if OCR text suggests interactive element
-        if not button_candidate:
+        button_candidate = (
+            (region.role == "button" and _is_plausible_button_region(region, image_width, image_height))
+            or _is_icon_button_candidate(region, image_area)
+        )
+        if not button_candidate and _is_plausible_button_region(region, image_width, image_height):
             button_candidate = _has_action_text(region, ocr_regions)
         if not button_candidate:
             continue
@@ -392,6 +394,20 @@ def _filter_hotspot_regions(
         hotspots.append(replace(region, role="button"))
 
     return _dedupe_regions(hotspots)
+
+
+def _is_plausible_button_region(region: Region, image_width: int, image_height: int) -> bool:
+    image_area = image_width * image_height
+    aspect = region.width / max(region.height, 1)
+    area_ratio = region.area / max(image_area, 1)
+
+    if area_ratio < 0.001 or area_ratio > 0.10:
+        return False
+    if region.width > image_width * 0.72 or region.height > image_height * 0.28:
+        return False
+    if region.height < image_height * 0.04:
+        return False
+    return 0.45 <= aspect <= 10.0
 
 
 def _is_icon_button_candidate(region: Region, image_area: int) -> bool:
@@ -408,7 +424,7 @@ def _is_text_dominated(region: Region, ocr_regions: list[OcrRegion]) -> bool:
     for text_region in ocr_regions:
         text_area += _intersection_area(region_box, _ocr_box(text_region))
 
-    return text_area / max(region.area, 1) > 0.28
+    return text_area / max(region.area, 1) > 0.6
 
 
 _ACTION_KEYWORDS = {
