@@ -417,20 +417,16 @@ namespace UnityUIBridge.Editor.Import
                 case "button":
                     var sourceBackgroundCoversVisuals = HasSourceBackground(spec);
                     var buttonImage = EnsureImage(gameObject, ResolveButtonFallbackColor(spec, node));
-                    if (!sourceBackgroundCoversVisuals)
+                    var hasButtonSprite = TryApplyAssetSprite(spec, node, buttonImage);
+                    if (!hasButtonSprite && sourceBackgroundCoversVisuals)
                     {
-                        TryApplyAssetSprite(spec, node, buttonImage);
-                    }
-                    else
-                    {
-                        buttonImage.sprite = null;
                         buttonImage.type = Image.Type.Simple;
                         buttonImage.color = new Color(1f, 1f, 1f, 0f);
                     }
 
                     var button = gameObject.AddComponent<Button>();
                     button.targetGraphic = buttonImage;
-                    if (sourceBackgroundCoversVisuals)
+                    if (!hasButtonSprite && sourceBackgroundCoversVisuals)
                     {
                         button.transition = Selectable.Transition.None;
                     }

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Verify that full-screen image reconstruction works correctly.
+"""Verify that modular full-screen image reconstruction works correctly.
 
 This script tests the image-to-spec pipeline to ensure:
-1. Generated specs use one background asset by default
-2. Button hotspots are reasonable
-3. Node order is clean: background first, hotspots next, text last
-4. Region sprite crops are only emitted with --emit-region-sprites
+1. Generated specs use one cleaned background asset by default
+2. Button nodes are reasonable
+3. Button nodes have cropped sprite assets
+4. Node order is clean: background first, controls next, text last
 
 Usage:
     python verify_fullscreen_reconstruction.py <image_path> [--output-dir <dir>]
@@ -25,8 +25,8 @@ def verify_spec(spec: dict) -> dict:
     """Verify a spec meets the full-screen reconstruction criteria."""
     results = {
         "has_background": False,
-        "has_hotspots": False,
-        "no_region_sprites": True,
+        "has_buttons": False,
+        "buttons_have_sprites": False,
         "correct_node_order": True,
         "issues": [],
     }
@@ -38,24 +38,25 @@ def verify_spec(spec: dict) -> dict:
     if not results["has_background"]:
         results["issues"].append("Missing background asset")
 
-    # Check 2: No region sprites (unless --emit-region-sprites)
-    region_sprites = [a for a in assets if a.get("type") in ("sprite", "panel", "icon")]
-    if region_sprites:
-        # This is OK if --emit-region-sprites was used
-        pass
+    asset_ids = {asset.get("id") for asset in assets}
 
-    # Check 3: Has button hotspots
+    # Check 2: Has modular button nodes with sprite references
     nodes = spec.get("nodes", [])
     if nodes:
         canvas = nodes[0]
         children = canvas.get("children", [])
         button_nodes = [c for c in children if c.get("role") == "button"]
-        results["has_hotspots"] = len(button_nodes) > 0
-        if not results["has_hotspots"]:
-            results["issues"].append("No button hotspots detected")
+        results["has_buttons"] = len(button_nodes) > 0
+        if not results["has_buttons"]:
+            results["issues"].append("No button nodes detected")
 
-        # Check 4: Correct node order
-        expected_order = ["image"]  # background first
+        results["buttons_have_sprites"] = bool(button_nodes) and all(
+            button.get("assetRef") in asset_ids for button in button_nodes
+        )
+        if not results["buttons_have_sprites"]:
+            results["issues"].append("One or more button nodes are missing cropped sprite asset references")
+
+        # Check 3: Correct node order
         actual_order = [c.get("role") for c in children]
         if actual_order and actual_order[0] != "image":
             results["correct_node_order"] = False
@@ -74,7 +75,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Error: Image not found: {args.image}", file=sys.stderr)
         return 1
 
-    # Generate spec with default settings (background + hotspots)
+    # Generate spec with default settings (cleaned background + button sprites)
     spec = image_to_ui_spec.generate_spec(
         args.image,
         asset_output_dir=args.output_dir,
@@ -94,9 +95,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     for check_name, passed in results.items():
         if check_name == "issues":
             continue
-        if check_name == "no_region_sprites":
-            continue
-
         status = "PASS" if passed else "FAIL"
         if not passed:
             all_passed = False

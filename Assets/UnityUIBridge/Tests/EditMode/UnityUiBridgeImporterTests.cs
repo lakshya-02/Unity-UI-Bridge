@@ -523,7 +523,7 @@ namespace UnityUIBridge.Tests.EditMode
         }
 
         [Test]
-        public void ImporterUsesTransparentHotspotsWhenBackgroundCoversVisuals()
+        public void ImporterUsesButtonSpritesWhenBackgroundCoversVisuals()
         {
             var assetPath = CreateTemporarySpriteAsset();
             var json = @"{
@@ -543,6 +543,13 @@ namespace UnityUIBridge.Tests.EditMode
       ""uri"": """ + assetPath.Replace("\\", "/") + @""",
       ""rect"": { ""x"": 0, ""y"": 0, ""width"": 64, ""height"": 64 },
       ""sourceNodeId"": ""node.background""
+    },
+    {
+      ""id"": ""asset.button"",
+      ""type"": ""panel"",
+      ""uri"": """ + assetPath.Replace("\\", "/") + @""",
+      ""rect"": { ""x"": 20, ""y"": 20, ""width"": 24, ""height"": 24 },
+      ""sourceNodeId"": ""node.play-button""
     }
   ],
   ""styles"": [],
@@ -564,7 +571,7 @@ namespace UnityUIBridge.Tests.EditMode
           ""role"": ""button"",
           ""name"": ""Play Hotspot"",
           ""rect"": { ""x"": 20, ""y"": 20, ""width"": 24, ""height"": 24 },
-          ""assetRef"": ""asset.background"",
+          ""assetRef"": ""asset.button"",
           ""interactionRef"": ""interaction.play""
         }
       ]
@@ -593,9 +600,9 @@ namespace UnityUIBridge.Tests.EditMode
             Assert.That(backgroundRect.offsetMin, Is.EqualTo(Vector2.zero));
             Assert.That(backgroundRect.offsetMax, Is.EqualTo(Vector2.zero));
             Assert.That(hotspot.GetComponent<Button>(), Is.Not.Null);
-            Assert.That(hotspot.GetComponent<Button>().transition, Is.EqualTo(Selectable.Transition.None));
-            Assert.That(hotspot.GetComponent<Image>().sprite, Is.Null);
-            Assert.That(hotspot.GetComponent<Image>().color.a, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(hotspot.GetComponent<Button>().transition, Is.EqualTo(Selectable.Transition.ColorTint));
+            Assert.That(hotspot.GetComponent<Image>().sprite, Is.Not.Null);
+            Assert.That(hotspot.GetComponent<Image>().color, Is.EqualTo(Color.white));
         }
 
         [Test]

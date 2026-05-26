@@ -58,20 +58,22 @@ def generate_spec(
     detection_limit = max(max_regions * 3, 96)
     regions = _detect_layout_regions(image, max_regions=detection_limit)
     ocr_regions = _detect_text_regions(path) if run_ocr else []
-    reconstruction_regions = (
+    detected_regions = (
         regions[:max_regions]
         if emit_region_sprites
-        else _filter_hotspot_regions(regions, ocr_regions, width, height)
-    )[:max_regions]
+        else _filter_hotspot_regions(regions, ocr_regions, width, height)[:max_regions]
+    )
+    reconstruction_regions = _expand_regions_for_sprites(detected_regions, width, height)
     assets, asset_refs = _extract_assets(
         path,
         image,
         width,
         height,
-        reconstruction_regions if emit_region_sprites else [],
+        reconstruction_regions,
         asset_output_dir=asset_output_dir,
         asset_uri_prefix=asset_uri_prefix,
         include_background=include_background,
+        background_cutout_regions=reconstruction_regions,
     )
 
     document_id = _safe_id(path.stem or "ui")
@@ -127,7 +129,7 @@ def generate_spec(
                 "layoutDetector": "opencv-contours",
                 "ocr": "paddleocr-with-easyocr-fallback" if run_ocr else "disabled",
                 "assetExtractor": "pil-region-cropper" if asset_output_dir is not None else "disabled",
-                "compositingMode": "region-sprites" if emit_region_sprites else "background-with-hotspots",
+                "compositingMode": "region-sprites" if emit_region_sprites else "background-with-button-sprites",
             }
         },
     }
@@ -152,7 +154,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--emit-region-sprites",
         action="store_true",
-        help="Emit visible cropped sprites for every detected region. Default uses one background plus hotspots.",
+        help="Emit visible cropped sprites for every detected region. Default crops detected buttons over a cleaned background.",
     )
     parser.add_argument("--project-root", type=Path, default=validate_specs.default_project_root())
     args = parser.parse_args(argv)
@@ -210,6 +212,7 @@ def _extract_assets(
     asset_output_dir: Path | str | None,
     asset_uri_prefix: str | None,
     include_background: bool,
+    background_cutout_regions: list[Region] | None = None,
 ) -> tuple[list[dict], dict[str, str]]:
     if asset_output_dir is None:
         return [], {}
@@ -232,7 +235,8 @@ def _extract_assets(
         asset_id = "asset.background"
         file_name = "source-background.png"
         asset_path = output_dir / file_name
-        source_image.save(asset_path)
+        background_image = _clean_background_image(image, background_cutout_regions or [])
+        background_image.save(asset_path)
         assets.append(
             {
                 "id": asset_id,
@@ -247,7 +251,7 @@ def _extract_assets(
     for index, region in enumerate(regions, start=1):
         node_id = f"node.detected-{index:03d}"
         asset_id = f"asset.detected-{index:03d}"
-        crop_rect = _expanded_crop_rect(region, image_width, image_height)
+        crop_rect = _expanded_crop_rect(region, image_width, image_height, padding=0)
         file_name = f"detected-{index:03d}-{region.role}.png"
         asset_path = output_dir / file_name
         source_image.crop(crop_rect).save(asset_path)
@@ -289,13 +293,58 @@ def _asset_uri(asset_path: Path, asset_uri_prefix: str | None) -> str:
     return f"{asset_uri_prefix.rstrip('/')}/{asset_path.name}"
 
 
-def _expanded_crop_rect(region: Region, image_width: int, image_height: int) -> tuple[int, int, int, int]:
-    padding = 2
+def _expanded_crop_rect(
+    region: Region,
+    image_width: int,
+    image_height: int,
+    padding: int = 2,
+) -> tuple[int, int, int, int]:
     left = max(0, region.x - padding)
     top = max(0, region.y - padding)
     right = min(image_width, region.x + region.width + padding)
     bottom = min(image_height, region.y + region.height + padding)
     return left, top, right, bottom
+
+
+def _expand_regions_for_sprites(regions: list[Region], image_width: int, image_height: int) -> list[Region]:
+    expanded: list[Region] = []
+    for region in regions:
+        left, top, right, bottom = _expanded_crop_rect(region, image_width, image_height)
+        expanded.append(
+            replace(
+                region,
+                x=left,
+                y=top,
+                width=max(1, right - left),
+                height=max(1, bottom - top),
+            )
+        )
+    return expanded
+
+
+def _clean_background_image(image, regions: list[Region]):
+    from PIL import Image
+
+    if not regions:
+        return Image.fromarray(image)
+
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        return Image.fromarray(image)
+
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)
+    image_height, image_width = image.shape[:2]
+    for region in regions:
+        left, top, right, bottom = _expanded_crop_rect(region, image_width, image_height, padding=0)
+        mask[top:bottom, left:right] = 255
+
+    if cv2.countNonZero(mask) == 0:
+        return Image.fromarray(image)
+
+    cleaned = cv2.inpaint(image, mask, 5, cv2.INPAINT_TELEA)
+    return Image.fromarray(cleaned)
 
 
 def _asset_type_for_role(role: str) -> str:

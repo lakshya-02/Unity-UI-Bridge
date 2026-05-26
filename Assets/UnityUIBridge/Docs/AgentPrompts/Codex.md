@@ -1,7 +1,7 @@
 Task: Verify full-screen image reconstruction and prepare detector improvements
 
 Goal:
-Make generated UIs import as one full-screen background image on the selected Canvas, with transparent Unity Button hotspots and editable OCR text layered on top.
+Make generated UIs import as a cleaned full-screen background image on the selected Canvas, with cropped button sprites assigned to Unity Button components and editable OCR text available as optional overlay metadata.
 
 Files likely involved:
 - Assets/UnityUIBridge/Tools/Python/image_to_ui_spec.py
@@ -11,11 +11,12 @@ Files likely involved:
 - Assets/UnityUIBridge/Docs/image-to-ui-pipeline.md
 
 Acceptance criteria:
-- Generated spec contains one background asset by default.
-- Region sprite crops are only emitted with --emit-region-sprites.
+- Generated spec contains one cleaned background asset by default.
+- Detected buttons have cropped sprite assets and `assetRef` values by default.
+- `--emit-region-sprites` expands sprite extraction to every detected region.
 - Import root stretches inside the selected Canvas.
 - Source Frame fills the target Canvas by default, with a letterbox option still available.
-- Unity buttons are transparent hotspots when a background is present.
+- Unity buttons use their cropped sprites when available, falling back to transparent hotspots only when no asset was emitted.
 - Python validation and unit tests pass.
 - dotnet build passes.
 - Generated files and model caches are not committed.

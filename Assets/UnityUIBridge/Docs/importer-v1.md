@@ -56,7 +56,8 @@ The importer currently creates:
 - Image components for panels, icons, image nodes, and unknown nodes
 - Sprite assignment for generated `assetRef` PNG files
 - Button components for `button` nodes
-- Transparent button hotspots when a generated full-image background is present
+- Cropped button sprites when generated `button` nodes have `assetRef`
+- Transparent button hotspots only as a fallback when a button has no sprite asset
 - TextMeshProUGUI components for visible `text` nodes and debug labels
 - TMP_InputField, Toggle, and Slider components for matching roles
 - Optional vertical or horizontal layout groups when explicitly enabled in the importer window

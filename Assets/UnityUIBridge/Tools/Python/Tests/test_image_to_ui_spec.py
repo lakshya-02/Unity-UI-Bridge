@@ -35,26 +35,38 @@ class ImageToUiSpecTests(unittest.TestCase):
                 output_path,
             )
             asset_files_exist = all((asset_output_dir / Path(asset["uri"]).name).exists() for asset in spec["assets"])
+            background_asset = next(asset for asset in spec["assets"] if asset["id"] == "asset.background")
+            button_asset = next(asset for asset in spec["assets"] if asset["id"].startswith("asset.detected-"))
+            background_pixel = _read_pixel(asset_output_dir / Path(background_asset["uri"]).name, 250, 190)
+            button_sprite_has_fill = _image_contains_pixel(
+                asset_output_dir / Path(button_asset["uri"]).name,
+                (45, 108, 223),
+            )
 
         self.assertEqual([], errors)
         self.assertEqual("1.0.0", spec["schemaVersion"])
         self.assertEqual({"width": 640, "height": 360}, spec["document"]["referenceResolution"])
         self.assertEqual("canvas", spec["nodes"][0]["role"])
         self.assertGreaterEqual(len(spec["nodes"][0]["children"]), 2)
-        self.assertEqual(1, len(spec["assets"]))
+        self.assertGreaterEqual(len(spec["assets"]), 2)
 
         asset_ids = {asset["id"] for asset in spec["assets"]}
         background_nodes = [node for node in spec["nodes"][0]["children"] if node["id"] == "node.background"]
         overlay_nodes = [node for node in spec["nodes"][0]["children"] if node["id"] != "node.background"]
+        button_nodes = [node for node in overlay_nodes if node["role"] == "button"]
+        region_assets = [asset for asset in spec["assets"] if asset["id"].startswith("asset.detected-")]
 
         self.assertTrue(asset_files_exist)
-        self.assertEqual(["asset.background"], list(asset_ids))
+        self.assertNotEqual((45, 108, 223), background_pixel)
+        self.assertTrue(button_sprite_has_fill)
+        self.assertIn("asset.background", asset_ids)
         self.assertEqual("asset.background", background_nodes[0].get("assetRef"))
-        self.assertTrue(all("assetRef" not in node for node in overlay_nodes))
+        self.assertGreaterEqual(len(region_assets), 1)
+        self.assertTrue(button_nodes)
+        self.assertTrue(all(node.get("assetRef") in asset_ids for node in button_nodes))
         self.assertTrue(
             any(asset["type"] == "background" and asset["sourceNodeId"] == "node.background" for asset in spec["assets"])
         )
-        self.assertTrue(any(node["role"] == "button" for node in overlay_nodes))
 
     def test_region_sprite_mode_emits_cropped_assets_for_detected_regions(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -110,7 +122,8 @@ class ImageToUiSpecTests(unittest.TestCase):
 
         self.assertEqual(0, exit_code)
         self.assertEqual("CLI Synthetic", payload["document"]["title"])
-        self.assertEqual(["asset.background"], [asset["id"] for asset in generated_assets])
+        self.assertIn("asset.background", [asset["id"] for asset in generated_assets])
+        self.assertTrue(any(asset["id"].startswith("asset.detected-") for asset in generated_assets))
 
     def test_hotspot_filter_rejects_large_panels_as_buttons(self):
         regions = [
@@ -150,6 +163,22 @@ def _write_synthetic_ui_png(path):
     draw.rectangle((225, 193, 245, 217), fill="#ffffff")
     draw.text((270, 195), "PLAY", fill="#ffffff")
     image.save(path)
+
+
+def _read_pixel(path, x, y):
+    from PIL import Image
+
+    with Image.open(path) as image:
+        return image.convert("RGB").getpixel((x, y))
+
+
+def _image_contains_pixel(path, expected):
+    from PIL import Image
+
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        colors = rgb.getcolors(maxcolors=rgb.width * rgb.height)
+        return any(color == expected for _, color in colors or [])
 
 
 if __name__ == "__main__":

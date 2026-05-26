@@ -26,13 +26,13 @@ Generate and validate a spec:
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json
 ```
 
-By default, the generator writes one full-image background sprite next to the generated spec:
+By default, the generator writes a cleaned background sprite plus cropped button sprites next to the generated spec:
 
 ```text
 Assets/UnityUIBridge/Generated/Sprites/<image-name>/
 ```
 
-This is the normal reconstruction mode. It prevents duplicate cropped frames by letting the source image cover the full Canvas while detected buttons become transparent Unity `Button` hotspots on top.
+This is the normal reconstruction mode. Detected interactable regions are removed from the background with local inpainting, cropped into reusable sprites, and assigned to Unity `Button` components.
 
 Disable OCR for a faster layout-only pass:
 
@@ -40,13 +40,13 @@ Disable OCR for a faster layout-only pass:
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json --no-ocr
 ```
 
-Disable the full-image background fallback when you only want cropped regions:
+Disable the background layer when you only want cropped regions:
 
 ```powershell
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json --no-background
 ```
 
-Emit visible cropped sprites for every detected region only when debugging segmentation:
+Emit visible cropped sprites for every detected region when debugging segmentation or experimenting with more modular panel/icon reconstruction:
 
 ```powershell
 python Assets\UnityUIBridge\Tools\Python\image_to_ui_spec.py path\to\image.png --output Assets\UnityUIBridge\Generated\Specs\generated-ui.json --emit-region-sprites
@@ -69,7 +69,7 @@ Use the `Image To Spec` section:
 - `Run OCR`: enable OCR text nodes.
 - `Import After Generate`: immediately import the generated spec into the target Canvas.
 
-For scene alignment, select your target Canvas first or click `Use Scene Canvas`. Keep `Fit To Target Canvas` and `Fill Target Canvas` enabled for normal full-screen reconstruction.
+For scene alignment, select your target Canvas first or click `Use Scene Canvas`. Keep `Fit To Target Canvas` enabled and use `Stretch To Canvas` for the current image-to-UI preview path.
 
 ## Planned Prompt To Concept Adapter
 
@@ -86,9 +86,9 @@ Recommended adapter rules:
 
 - Detects major layout regions with OpenCV contours.
 - Classifies broad regions as panels, buttons, icons, or images.
-- Emits a source-background asset so first-pass imports visually line up with the reference image.
-- Converts detected controls into transparent Unity Button hotspots by default.
-- Can optionally crop detected visual regions into PNG sprite assets for segmentation debugging.
+- Emits a cleaned source-background asset so first-pass imports visually line up with the reference image.
+- Crops detected controls into PNG sprite assets and assigns them to Unity Button components by default.
+- Can optionally crop every detected visual region into PNG sprite assets for segmentation debugging.
 - Detects text using PaddleOCR when available, with EasyOCR fallback on Windows.
 - Emits a valid Unity UI Bridge v1 JSON spec.
 - Imports the generated spec into uGUI and assigns referenced sprites to Image/Button/Panel nodes.
